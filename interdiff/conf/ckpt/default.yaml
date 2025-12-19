@@ -1,0 +1,3 @@
+init_from: scratch        # scratch | resume | gpt2*
+ckpt_name: smiles_gpt_val_loss_0.9274531602859497.pt
+path: ${experiment.wandb_run_name}

@@ -1,0 +1,4 @@
+_target_: interdiff.data.RLLoader.FinetuneBaseLoader
+cfg: ???  
+device: ???  
+tokenizer: ??? 

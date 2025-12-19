@@ -1,0 +1,4 @@
+_target_: interdiff.data.ControllableGPTLoader.ControllableGPTLoader
+batch_size: ${train_cfg.batch_size}
+seed: ${seed}
+val_ratio: 0.1

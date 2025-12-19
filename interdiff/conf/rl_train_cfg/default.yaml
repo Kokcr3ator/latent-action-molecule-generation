@@ -1,0 +1,11 @@
+# RL Training Configuration
+_target_: interdiff.trainers.base_RL.RLTrainConfig
+device: ${sys.device}
+budget: ${ppo.budget}
+log_frequency: ${ppo.log_frequency}
+eval_frequency: ${ppo.eval_frequency}
+ckpt_path: ckpts/${experiment.wandb_run_name}
+always_save_checkpoint: false
+n_mols_generate: 100
+tokenizer_dir: ${tokenizer.output_dir}
+pad_token_id: ${tokenizer.pad_token_id}

@@ -1,0 +1,3 @@
+_target_: interdiff.logging.wandb_logger.WandbLogger
+project: ${experiment.wandb_project}
+name: ${experiment.wandb_run_name}

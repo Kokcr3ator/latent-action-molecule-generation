@@ -1,0 +1,17 @@
+_target_: interdiff.trainers.base.TrainConfig
+grad_clip: 1.0
+device: ${sys.device}
+mixed_dtype: ${sys.dtype}         
+compile_model: ${sys.compile}
+always_save_checkpoint: ${sys.always_save_checkpoint}
+ckpt_path: ${ckpt.path}
+eval_interval: 200 # how many steps before running eval
+eval_iters: 5 # how many eval steps to average over for the computation of val loss
+log_interval: 20 # number of train steps before reporting train loss
+max_iters: 10000 # total number of training steps 
+warmup_iters: 1000
+batch_size: 512
+gradient_accumulation_steps: 1 
+n_mols_generate: 500 # number of molecules to generate at eval time to calculate metrics
+pad_token_id: ${tokenizer.pad_token_id}
+tokenizer_dir: ${tokenizer.output_dir}

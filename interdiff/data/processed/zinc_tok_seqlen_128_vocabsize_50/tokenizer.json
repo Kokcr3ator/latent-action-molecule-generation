@@ -1,0 +1,176 @@
+{
+  "version": "1.0",
+  "truncation": {
+    "direction": "Right",
+    "max_length": 128,
+    "strategy": "LongestFirst",
+    "stride": 0
+  },
+  "padding": {
+    "strategy": {
+      "Fixed": 128
+    },
+    "direction": "Right",
+    "pad_to_multiple_of": null,
+    "pad_id": 0,
+    "pad_type_id": 0,
+    "pad_token": "[PAD]"
+  },
+  "added_tokens": [
+    {
+      "id": 0,
+      "content": "[PAD]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 1,
+      "content": "[UNK]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 2,
+      "content": "[MASK]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 3,
+      "content": "[BOS]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    },
+    {
+      "id": 4,
+      "content": "[EOS]",
+      "single_word": false,
+      "lstrip": false,
+      "rstrip": false,
+      "normalized": false,
+      "special": true
+    }
+  ],
+  "normalizer": null,
+  "pre_tokenizer": {
+    "type": "Whitespace"
+  },
+  "post_processor": null,
+  "decoder": null,
+  "model": {
+    "type": "BPE",
+    "dropout": null,
+    "unk_token": "[UNK]",
+    "continuing_subword_prefix": null,
+    "end_of_word_suffix": null,
+    "fuse_unk": false,
+    "byte_fallback": false,
+    "ignore_merges": false,
+    "vocab": {
+      "[PAD]": 0,
+      "[UNK]": 1,
+      "[MASK]": 2,
+      "[BOS]": 3,
+      "[EOS]": 4,
+      "#": 5,
+      "(": 6,
+      ")": 7,
+      "+": 8,
+      "-": 9,
+      "/": 10,
+      "1": 11,
+      "2": 12,
+      "3": 13,
+      "4": 14,
+      "5": 15,
+      "6": 16,
+      "7": 17,
+      "8": 18,
+      "=": 19,
+      "@": 20,
+      "B": 21,
+      "C": 22,
+      "E": 23,
+      "F": 24,
+      "H": 25,
+      "I": 26,
+      "N": 27,
+      "O": 28,
+      "P": 29,
+      "S": 30,
+      "[": 31,
+      "\\": 32,
+      "]": 33,
+      "c": 34,
+      "l": 35,
+      "n": 36,
+      "o": 37,
+      "r": 38,
+      "s": 39,
+      "cc": 40,
+      "OS": 41,
+      "CC": 42,
+      "BOS": 43,
+      "EOS": 44,
+      "c1": 45,
+      "(=": 46,
+      "c2": 47,
+      "c1cc": 48,
+      "](": 49
+    },
+    "merges": [
+      [
+        "c",
+        "c"
+      ],
+      [
+        "O",
+        "S"
+      ],
+      [
+        "C",
+        "C"
+      ],
+      [
+        "B",
+        "OS"
+      ],
+      [
+        "E",
+        "OS"
+      ],
+      [
+        "c",
+        "1"
+      ],
+      [
+        "(",
+        "="
+      ],
+      [
+        "c",
+        "2"
+      ],
+      [
+        "c1",
+        "cc"
+      ],
+      [
+        "]",
+        "("
+      ]
+    ]
+  }
+}

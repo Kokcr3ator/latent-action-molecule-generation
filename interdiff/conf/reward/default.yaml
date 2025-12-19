@@ -1,0 +1,2 @@
+# Reward function configuration
+task: qed  # Options: qed, logp, mw, tpsa, sa

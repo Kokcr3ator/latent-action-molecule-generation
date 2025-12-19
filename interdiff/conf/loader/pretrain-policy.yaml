@@ -1,0 +1,7 @@
+_target_: interdiff.data.PretrainPolicyLoader.PretrainPolicyLoader
+controllable_gpt_path: ???
+action_dataset_out_dir: data/processed/${data.name}
+pad_token_id: ${tokenizer.pad_token_id}
+seed: ${seed}
+val_ratio: 0.1
+batch_size: ${train_cfg.batch_size}

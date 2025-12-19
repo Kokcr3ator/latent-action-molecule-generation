@@ -1,0 +1,14 @@
+torch
+numpy
+tqdm
+pyyaml
+gymnasium
+wandb
+minigrid
+tokenizers
+rdkit
+safetensors
+selfies
+tyro
+hydra-core
+pytest

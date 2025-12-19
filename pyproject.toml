@@ -1,0 +1,74 @@
+# This toml file is in comliance with PEP 517, PEP 518 and PEP 621
+# However, setuptools support for these is only in Beta
+# For now, `setup.py` is still the first option for pip
+[build-system]
+build-backend = "setuptools.build_meta"
+requires = ["setuptools >= 50", "setuptools-scm[toml]>=6.2", "wheel"]
+
+[project]
+authors = [
+  {name = "Tommaso Giorgi", email = "tommaso2.giorgi@hotmail.com"},
+  {name = "Nagham Osman", email = "nagham.osman@gmail.com"},
+  {name = "Eduardo Pignatelli", email = "edu.pignatelli@gmail.com"},
+]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Science/Research",
+  "Intended Audience :: Financial and Insurance Industry",
+  "Intended Audience :: Healthcare Industry",
+  "Environment :: GPU",
+  "Environment :: GPU :: NVIDIA CUDA",
+  "Environment :: GPU :: NVIDIA CUDA :: 11.0",
+  "Environment :: GPU :: NVIDIA CUDA :: 11.1",
+  "Environment :: GPU :: NVIDIA CUDA :: 11.2",
+  "Environment :: GPU :: NVIDIA CUDA :: 11.3",
+  "Environment :: GPU :: NVIDIA CUDA :: 11.4",
+  "Environment :: GPU :: NVIDIA CUDA :: 11.5",
+  "Environment :: GPU :: NVIDIA CUDA :: 11.6",
+  "Environment :: GPU :: NVIDIA CUDA :: 11.7",
+  "Environment :: GPU :: NVIDIA CUDA :: 11.8",
+  "Framework :: Pytest",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Topic :: Scientific/Engineering",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Topic :: Software Development",
+  "Topic :: Software Development :: Libraries",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+]
+description = ""
+dynamic = ["version", "dependencies"]
+license = {file = "LICENSE", name = "Apache-2.0"}
+maintainers = [
+  {name = "Tommaso Giorgi", email = "tommaso2.giorgi@hotmail.com"},
+  {name = "Nagham Osman", email = "nagham.osman@gmail.com"},
+  {name = "Eduardo Pignatelli", email = "edu.pignatelli@gmail.com"},
+]
+name = "InterDiff"
+readme = "README.md"
+requires-python = ">=3.9"
+
+[project.urls]
+bug_tracker = "https://github.com/Kokcr3ator/InterDiff/issues"
+homepage = "https://github.com/Kokcr3ator/InterDiff/"
+repository = "https://github.com/Kokcr3ator/InterDiff/"
+
+[tool.setuptools.dynamic]
+dependencies = {file = "./requirements.txt"}
+version = {attr = "interdiff._version.__version__"}
+
+[tool.setuptools.packages.find]
+exclude = ["tests", "examples", "docs"]
+include = ["interdiff*"]
+
+[tool.distutils.bdist_wheel]
+universal = true
+
+[tool.black]
+line-length = 88

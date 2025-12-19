@@ -1,0 +1,10 @@
+# Load from pretrained model
+python3 -m scripts.train_ppo wandb_log=false experiment=finetune_controllable ckpt.init_from=resume ckpt.path="/workspace/giortom/InterDiff/ckpts/interdiff_bs512_vocab500_seed42" ckpt.ckpt_name="best.pt" loader.ckpt_controllable_path="/workspace/giortom/InterDiff/ckpts/controllable_gpt_bs_256_vocab500_seed42" loader.ckpt_name="best.pt"
+# Use LogP reward
+# python scripts/train_ppo.py reward=logp
+
+# Customize PPO hyperparameters
+# python scripts/train_ppo.py ppo.num_envs=64 ppo.lr=1e-4 ppo.budget=2000000
+
+# Disable wandb logging
+# python scripts/train_ppo.py wandb_log=false

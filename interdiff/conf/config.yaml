@@ -1,0 +1,19 @@
+seed: 42
+eval_only: false
+compile: true
+wandb_log: False
+
+defaults:
+  - context
+  - tokenizer: smiles
+  - model: pretrain-policy
+  - experiment: ${model}
+  - data: zinc
+  - trainer: ${model}
+  - optim: adamw
+  - sched: cosine_decay
+  - sys: runtime
+  - log: wandb
+  - ckpt: default
+  - train_cfg: ${model}
+  - loader: ${model}

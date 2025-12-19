@@ -1,0 +1,9 @@
+conda create -n interdiff python=3.9 -y
+conda activate interdiff
+pip install -e ../interdiff
+
+./pretrain_base/run.sh
+./finetune_base/run.sh
+./pretrain_controllable/run.sh
+./distill_policy/run.sh
+./finetune_controllable/run.sh

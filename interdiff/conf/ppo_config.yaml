@@ -1,0 +1,18 @@
+# PPO Finetuning Configuration
+seed: 42
+wandb_log: true
+
+defaults:
+  - context
+  - tokenizer: smiles
+  - experiment: finetune_base
+  - loader: ${experiment}
+  - data: zinc
+  - optim: adamw
+  - sys: runtime
+  - log: wandb
+  - ckpt: default
+  - ppo: default
+  - env: ${experiment}
+  - reward: default
+  - rl_train_cfg: default

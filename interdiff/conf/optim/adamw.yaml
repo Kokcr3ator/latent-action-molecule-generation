@@ -1,0 +1,6 @@
+_target_: interdiff.optim.adam_w
+learning_rate: 3e-4
+beta1: 0.9
+beta2: 0.99
+weight_decay: 0.0
+device_type: ${sys.device}
