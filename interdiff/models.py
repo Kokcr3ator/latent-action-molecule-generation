@@ -613,11 +613,11 @@ class PolicyNetwork(GPT):
             logits = logits[:, -1, :]                         # (B, n_actions)
 
             next_action = sample_from_logits(tensor_logits=logits, temperature=temperature, top_k=top_k)  # (B,1)
-
+            next_action_emb = lam.vq.codebook[next_action]
             if prev_actions is None:
-                actions = next_action.unsqueeze(1)  # (B,1,1)
+                actions = next_action_emb  
             else:
-                actions = torch.cat([prev_actions, next_action.unsqueeze(1)], dim=1)  # (B,t,1)
+                actions = torch.cat([prev_actions, next_action_emb], dim=1)  # (B,t,1)
 
             # Predict next state using dynamics model
             logits_dm = dynamics_model(context, actions)  # (B, t, vocab)
