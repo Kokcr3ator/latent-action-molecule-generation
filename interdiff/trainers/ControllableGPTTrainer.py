@@ -167,6 +167,8 @@ class ControllableGPTTrainer(TrainerBase):
             elif self.state.step % self.log_interval == 0:
                 avg_loss = running_metrics['total_loss'] / max(1, self.log_interval)
                 print(f"step {self.state.step}: train loss {avg_loss}")
+                for key, value in running_metrics.items():
+                    print(f"    train/{key}: {value / max(1, self.log_interval)}")
                 for key in running_metrics:
                     running_metrics[key] = 0.0
 
