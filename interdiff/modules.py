@@ -409,7 +409,7 @@ class VectorQuantizer(SerialisableModule):
 
     def forward(
         self, x: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    ) -> Tuple[torch.Tensor, dict, torch.Tensor]:
         """Quantize continuous vectors to discrete codes.
         
         Args:
@@ -418,7 +418,12 @@ class VectorQuantizer(SerialisableModule):
         Returns:
             Tuple containing:
                 - z_q: Quantized tensor with straight-through gradients.
-                - loss: Combined VQ loss (reconstruction + commitment + entropy).
+                - vq_loss_dict: Dictionary containing individual loss components:
+                    - 'vq_loss': Combined VQ loss (reconstruction + commitment + entropy).
+                    - 'q_loss': Reconstruction loss.
+                    - 'commit_loss': Commitment loss.
+                    - 'entropy_loss': Entropy regularization loss.
+                    - 'entropy': Raw entropy value.
                 - indices: Action indexes in the codebook.
         """
         # --- Normalize input and codebook ---
@@ -439,10 +444,19 @@ class VectorQuantizer(SerialisableModule):
         commit_loss = F.mse_loss(x, z.detach(), reduction="mean")
         q_loss = F.mse_loss(z, x.detach(), reduction="mean")
 
-        ent_loss = self.entropy_from_indices(indices)
+        entropy = self.entropy_from_indices(indices)
+        entropy_loss = -entropy  # Negative entropy to encourage uniform usage
 
-        loss = q_loss + self.vq_beta * commit_loss + self.entropy_weight * ent_loss
-        return z_q, loss, indices
+        loss = q_loss + self.vq_beta * commit_loss + self.entropy_weight * entropy_loss
+        
+        vq_loss_dict = {
+            'vq_loss': loss,
+            'q_loss': q_loss,
+            'commit_loss': commit_loss,
+            'entropy_loss': entropy_loss,
+            'entropy': entropy,
+        }
+        return z_q, vq_loss_dict, indices
 
     def get_codes(self, indices: torch.Tensor):
         """Retrieve codebook vectors for given indices.
@@ -460,12 +474,15 @@ class VectorQuantizer(SerialisableModule):
     ) -> torch.Tensor:
         """Compute entropy of the codebook usage distribution.
         
+        Higher entropy indicates more uniform codebook usage, which is desirable
+        to prevent codebook collapse.
+        
         Args:
             indices: Tensor of action indexes.
             eps: Small constant for numerical stability.
             
         Returns:
-            Entropy value as a scalar tensor.
+            Entropy value as a scalar tensor (higher is better).
         """
         flat_indices = indices.view(-1)
         counts = torch.bincount(flat_indices, minlength=self.num_latents).float()

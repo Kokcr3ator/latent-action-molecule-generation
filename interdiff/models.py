@@ -302,7 +302,7 @@ class LatentActionModel(SerialisableModule):
 
         self.codebook = self.vq.codebook
 
-    def vq_encode(self, tokens: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+    def vq_encode(self, tokens: torch.Tensor) -> Tuple[torch.Tensor, dict, torch.Tensor]:
         """Encode tokens into quantized latent actions.
         
         Args:
@@ -311,7 +311,7 @@ class LatentActionModel(SerialisableModule):
         Returns:
             Tuple containing:
                 - z_q: Quantized actions of shape (batch_size, seq_len-1, latent_action_dim).
-                - vq_loss: Vector quantization loss.
+                - vq_loss_dict: Dictionary containing individual VQ loss components.
                 - indices: Codebook indices of shape (batch_size, seq_len-1).
         """
         B, T = tokens.shape
@@ -321,11 +321,11 @@ class LatentActionModel(SerialisableModule):
         z = z[:, 1:, :]  # (B, T-1, model_dim) -> the action at time t encodes info about token at time t+1
         # Quantize only the latent action tokens
         z_flat = z.reshape(B * (T - 1), -1)  # (B*(T-1), model_dim)
-        z_q, vq_loss, indices = self.vq(z_flat)
+        z_q, vq_loss_dict, indices = self.vq(z_flat)
         z_q = z_q.reshape(B, T - 1, self.latent_action_dim)
         indices = indices.reshape(B, T - 1)
 
-        return z_q, vq_loss, indices
+        return z_q, vq_loss_dict, indices
 
     def decode(self, tokens: torch.Tensor, actions: torch.Tensor):
         """Decode tokens conditioned on latent actions.
@@ -346,7 +346,7 @@ class LatentActionModel(SerialisableModule):
         logits = self.decoder.lm_head(tokens)
         return logits
 
-    def forward(self, tokens) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def forward(self, tokens) -> Tuple[torch.Tensor, torch.Tensor, dict]:
         """Forward pass: encode to actions then decode.
         
         Args:
@@ -356,11 +356,11 @@ class LatentActionModel(SerialisableModule):
             Tuple containing:
                 - logits: Token predictions of shape (batch_size, seq_len-1, vocab_size).
                 - actions: Quantized latent actions.
-                - vq_loss: Vector quantization loss.
+                - vq_loss_dict: Dictionary containing individual VQ loss components.
         """
-        actions, vq_loss, _ = self.vq_encode(tokens)
+        actions, vq_loss_dict, _ = self.vq_encode(tokens)
         logits = self.decode(tokens[..., :-1], actions) # exclude the last token for prediction (B, T-1)
-        return logits, actions, vq_loss
+        return logits, actions, vq_loss_dict
 
 class LongHorizonLatentActionModel(LatentActionModel):
     """Long-horizon variant of Latent Action Model (not yet implemented).
@@ -521,7 +521,7 @@ class ControllableGPT(SerialisableModule):
 
     def forward(
         self, tokens: torch.Tensor
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    ) -> Tuple[torch.Tensor, torch.Tensor, dict]:
         """Forward pass through both LAM and dynamics model.
         
         Args:
@@ -531,15 +531,15 @@ class ControllableGPT(SerialisableModule):
             Tuple containing:
                 - lam_logits: Predictions from latent action model.
                 - dynamics_model_logits: Predictions from dynamics model.
-                - vq_loss: Vector quantization loss.
+                - vq_loss_dict: Dictionary containing individual VQ loss components.
         """
-        lam_logits, actions, vq_loss = self.lam(tokens)
+        lam_logits, actions, vq_loss_dict = self.lam(tokens)
 
         dynamics_model_logits= self.dynamics_model(
             tokens[..., :-1], actions.detach()
         )
 
-        return lam_logits, dynamics_model_logits, vq_loss
+        return lam_logits, dynamics_model_logits, vq_loss_dict
 
 class PolicyNetwork(GPT):
     def __init__(self, 
