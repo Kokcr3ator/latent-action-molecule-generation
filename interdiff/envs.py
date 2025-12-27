@@ -205,8 +205,8 @@ class Env:
         next_obs = self._get_next_state(timestep, action)
         next_action_obs = timestep.action_observation.clone()
         next_action_obs[torch.arange(next_action_obs.shape[0]), timestep.t] = action
-        reward = self._reward(timestep, action)
-        step_type = self._termination(timestep = timestep, action = action)
+        reward = self._reward(timestep, next_obs)
+        step_type = self._termination(timestep = timestep, next_obs = next_obs)
         return Timestep(
             observation=next_obs,
             action_observation=next_action_obs,

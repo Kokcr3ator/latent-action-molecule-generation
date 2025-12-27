@@ -4,7 +4,7 @@ experiment=finetune_controllable \
 ckpt.init_from=resume \
 ckpt.path="/workspace/giortom/InterDiff/ckpts/interdiff_bs512_vocab500_seed42" \
 ckpt.ckpt_name="best.pt" \
-loader.ckpt_controllable_path="/workspace/giortom/InterDiff/ckpts/controllable_gpt_bs_256_vocab500_seed42" \
+loader.ckpt_controllable_path="/workspace/giortom/InterDiff/ckpts/policydistillation_bs_256_vocab500_seed42" \
 loader.ckpt_name="best.pt"
 
 # Use LogP reward
