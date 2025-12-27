@@ -6,15 +6,17 @@ from dataclasses import dataclass, field, replace
 from tokenizers import Tokenizer
 import torch
 
-from .models import DynamicsModel
+from .models import DynamicsModel, LatentActionModel
 from .metrics import qed, logp, molecular_weight, tpsa, synthetic_accessibility
 from .utils.eval_utils import tokens_to_smiles
+from interdiff.utils.eval_utils import sample_from_logits
 
 @dataclass
 class Timestep:
     """Container for one environment transition."""
 
     observation: torch.Tensor
+    action_observation: torch.Tensor
     t: torch.Tensor
     reward: torch.Tensor
     step_type: torch.Tensor
@@ -58,10 +60,11 @@ class Reward:
         else:
             raise ValueError(f"Unknown task: {self.task}")
         
-    def __call__(self, timestep: Timestep, action: torch.Tensor) -> torch.Tensor:
+    def __call__(self, timestep: Timestep, next_obs: torch.Tensor) -> torch.Tensor:
         """Calculate the reward for the given action."""
         # if there is no termination (action != eos_token_id), reward is 0
-        if torch.all(action != self.eos_token_id):
+        next_state = next_obs[torch.arange(next_obs.shape[0]), timestep.t + 1]
+        if torch.all(next_state != self.eos_token_id):
             return torch.zeros_like(timestep.reward).to(self.device)
 
         smiles = tokens_to_smiles(token_ids=timestep.observation, tokenizer=self.tokeniser)
@@ -72,6 +75,8 @@ class Reward:
             ],
             dtype=torch.float32,
         ).to(self.device)
+        not_ended = next_state != self.eos_token_id
+        new_reward[not_ended] = 0.0
         return new_reward
 
 
@@ -124,6 +129,12 @@ class Env:
             dtype=torch.long,
         ).to(self.device)
 
+        new_action_obs = torch.full(
+            (n_envs_to_reset, self.context_length),
+            self.special_tokens["pad"],
+            dtype=torch.long,
+        ).to(self.device)
+
         # add bos token at the start
         new_obs[:, 0] = self.special_tokens["bos"]
         new_reward = torch.zeros((n_envs_to_reset,), dtype=torch.float32).to(self.device)
@@ -143,15 +154,16 @@ class Env:
             )
             new_time += 3
         new_rng = seed
-        return new_obs, new_time, new_reward, new_step_type, new_returns, new_rng
+        return new_obs, new_action_obs, new_time, new_reward, new_step_type, new_returns, new_rng
     
     def reset(self, timestep: Timestep, seed: torch.Tensor) -> Timestep:
-        new_obs, new_time, new_reward, new_step_type, new_returns, new_rng = self._initial_condition(seed)
+        new_obs, new_action_obs, new_time, new_reward, new_step_type, new_returns, new_rng = self._initial_condition(seed)
 
         if timestep is None:
             # initial reset
             return Timestep(
                 observation=new_obs,
+                action_observation=new_action_obs,
                 t=new_time,
                 reward=new_reward,
                 step_type=new_step_type,
@@ -167,6 +179,7 @@ class Env:
             f"Number of envs to reset ({n_envs_to_reset}) does not match the number of done envs ({torch.sum(reset_mask).item()})"
         return Timestep(
             observation=self._update_fn(timestep.observation, new_obs, reset_mask),
+            action_observation=self._update_fn(timestep.action_observation, new_action_obs, reset_mask),
             t=self._update_fn(timestep.t, new_time, reset_mask),
             reward=self._update_fn(timestep.reward, new_reward, reset_mask),
             step_type=self._update_fn(timestep.step_type, new_step_type, reset_mask),
@@ -190,10 +203,13 @@ class Env:
             timestep = self.reset(timestep, seeds)
 
         next_obs = self._get_next_state(timestep, action)
+        next_action_obs = timestep.action_observation.clone()
+        next_action_obs[torch.arange(next_action_obs.shape[0]), timestep.t] = action
         reward = self._reward(timestep, action)
         step_type = self._termination(timestep = timestep, action = action)
         return Timestep(
             observation=next_obs,
+            action_observation=next_action_obs,
             t=timestep.t + 1,
             reward=reward,
             step_type=step_type,
@@ -207,25 +223,18 @@ class Env:
         x[reset_mask] = y
         return x
 
-    def _reward(self, timestep: Timestep, action: torch.Tensor) -> torch.Tensor:
-        return self.reward_fn(timestep, action)
+    def _reward(self, timestep: Timestep, next_obs: torch.Tensor) -> torch.Tensor:
+        return self.reward_fn(timestep, next_obs)
 
-    def _termination(self, timestep: Timestep, action: torch.Tensor) -> torch.Tensor:
+    def _termination(self, timestep: Timestep, next_obs: torch.Tensor) -> torch.Tensor:
         """Returns:
         - 0 if the environment still runs
         - 1 if the environment has terminated
         - 2 if the environment has reached a maximum length
         """
-        # if no env stream has eos token, continue
-        if torch.all(action != self.special_tokens["eos"]):
-            return torch.zeros((self.num_envs,), dtype=torch.long).to(self.device)
-        # if all have terminated, reset all of them
-        elif torch.all(action == self.special_tokens["eos"]):
-            return torch.ones((self.num_envs,), dtype=torch.long).to(self.device)
-        
-        # otherwise, selectively terminate those that have sent eos token
+        next_state = next_obs[torch.arange(next_obs.shape[0]), timestep.t + 1]
         does_timeout = (timestep.t + 1 >= self.max_steps).to(torch.long)
-        does_terminate = (action == self.special_tokens["eos"]).to(torch.long)
+        does_terminate = (next_state == self.special_tokens["eos"]).to(torch.long)
         step_type = torch.zeros((self.num_envs,), dtype=torch.long).to(self.device)
         # replace timeouts
         step_type[does_timeout == 1] = 2
@@ -237,12 +246,63 @@ class MoleculeGenerationEnv(Env):
 
     def _get_next_state(self, timestep: Timestep, action: torch.Tensor) -> torch.Tensor:
         next_obs = timestep.observation.clone()
-        next_obs[:, timestep.t + 1] = action
+        next_obs[torch.arange(next_obs.shape[0]), timestep.t + 1] = action
         return next_obs
 
 
 class ControllableMoleculeGenerationEnv(Env):
     dynamics_model: DynamicsModel
+    lam: LatentActionModel
 
+    def _initial_condition(self, seed):
+        n_envs_to_reset = seed.shape[0]
+        new_time = torch.zeros((n_envs_to_reset,), dtype=torch.long).to(self.device)
+        # start with all pad tokens
+        new_obs = torch.full(
+            (n_envs_to_reset, self.context_length),
+            self.special_tokens["pad"],
+            dtype=torch.long,
+        ).to(self.device)
+
+        new_action_obs = torch.full(
+            (n_envs_to_reset, self.context_length),
+            self.special_tokens["pad"],
+            dtype=torch.long,
+        ).to(self.device)
+
+        # add bos token at the start
+        new_obs[:, 0] = self.special_tokens["bos"]
+        new_reward = torch.zeros((n_envs_to_reset,), dtype=torch.float32).to(self.device)
+        new_step_type = torch.zeros((n_envs_to_reset,), dtype=torch.long).to(self.device)
+        new_returns = torch.zeros((n_envs_to_reset,), dtype=torch.float32).to(self.device)
+        if self.random_start:
+            new_obs = torch.scatter(
+                new_obs,
+                0,
+                torch.as_tensor([1, 2, 3] * n_envs_to_reset).view(n_envs_to_reset, 3),
+                torch.randint(
+                    low=self.action_space.lower + len(self.special_tokens),
+                    high=self.action_space.upper,
+                    size=(n_envs_to_reset, 3),
+                    dtype=torch.long,
+                ),
+            )
+            new_time += 3
+            # compute the corresponding action_obs using the latent action model
+            states = new_obs[:, :4]
+            with torch.no_grad():
+                _, _, actions = self.lam.vq_encode(states)
+            new_action_obs[:, :3] = actions
+        new_rng = seed
+        return new_obs, new_action_obs, new_time, new_reward, new_step_type, new_returns, new_rng
+    
     def _get_next_state(self, timestep: Timestep, action: torch.Tensor) -> torch.Tensor:
-        return self.dynamics_model(timestep.observation, action)
+        next_obs = timestep.observation.clone()
+        all_actions = timestep.action_observation.clone()
+        all_actions[torch.arange(all_actions.shape[0]), timestep.t] = action
+        action_emb = self.lam.vq.codebook[all_actions]
+        state_logits = self.dynamics_model(timestep.observation, action_emb)
+        state_logits = state_logits[torch.arange(state_logits.shape[0]), timestep.t]
+        new_states = sample_from_logits(tensor_logits=state_logits)
+        next_obs[torch.arange(next_obs.shape[0]), timestep.t + 1] = new_states.squeeze(-1)
+        return next_obs

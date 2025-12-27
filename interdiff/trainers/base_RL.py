@@ -225,23 +225,23 @@ class RLTrainerBase:
         episode_rewards = torch.zeros(self.env.num_envs, device=self.device)
         episode_lens = torch.zeros(self.env.num_envs, device=self.device)
         
-        max_steps = self.env.context_length * (num_episodes // self.env.num_envs + 2)
+        max_steps = self.env.context_length * (num_episodes // self.env.num_envs)
         
         for t in range(max_steps):
             if len(total_rewards) >= num_episodes:
                 break
             
             # Get action from policy
-            dist, _ = self.ppo_agent(timestep.observation)
+            dist, _ = self.ppo_agent(timestep.observation, timestep.t.to(torch.long))
             action = dist.sample()
             
             # Step environment
-            timestep = self.env.step(timestep, action)
-            episode_rewards += timestep.reward
+            next_ts = self.env.step(timestep, action)
+            episode_rewards += next_ts.reward
             episode_lens += 1
             
             # Check for terminated episodes
-            terminated = timestep.step_type > 0
+            terminated = next_ts.step_type > 0
             if terminated.any():
                 for i in range(self.env.num_envs):
                     if terminated[i] and len(total_rewards) < num_episodes:
@@ -251,6 +251,7 @@ class RLTrainerBase:
                         generated_sequences.append(timestep.observation[i].cpu())
                         episode_rewards[i] = 0.0
                         episode_lens[i] = 0.0
+            timestep = next_ts
         
         self.ppo_agent.train()
         

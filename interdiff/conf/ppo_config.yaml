@@ -13,6 +13,5 @@ defaults:
   - log: wandb
   - ckpt: default
   - ppo: default
-  - env: ${experiment}
   - reward: default
   - rl_train_cfg: default

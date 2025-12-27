@@ -1,5 +1,9 @@
 # Load from pretrained model
-python3 -m scripts.train_ppo wandb_log=false ckpt.init_from=resume ckpt.path="/workspace/giortom/InterDiff/ckpts/interdiff_bs512_vocab500_seed42" ckpt.ckpt_name="best.pt"
+python3 -m scripts.train_ppo wandb_log=false \
+ckpt.init_from=resume \
+ckpt.path="/workspace/giortom/InterDiff/ckpts/interdiff_bs512_vocab500_seed42" \
+ckpt.ckpt_name="best.pt" \
+ppo.num_envs=32
 
 # Use LogP reward
 # python scripts/train_ppo.py reward=logp

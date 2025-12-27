@@ -50,9 +50,9 @@ def main(cfg: DictConfig):
     tokenizer = load_tokenizer(os.path.join(cfg.rl_train_cfg.tokenizer_dir, "tokenizer.json"))
     log.info(f"Tokenizer loaded with vocab size {tokenizer.get_vocab_size()}")
     log.info("Setting up loader...")
-    loader = instantiate(cfg.loader, cfg=cfg, device=device, tokenizer=tokenizer)
+    loader = instantiate(cfg.loader)
     log.info("Loading pretrained model...")
-    model = loader.load_pretrained_model()
+    model = loader.load_pretrained_model(cfg, device)
     log.info(f"Pretrained model loaded with embedding dim {model.config.n_embd}")
     
     # Create a reference copy of the pretrained model for KL divergence
@@ -70,14 +70,14 @@ def main(cfg: DictConfig):
     
     # Setup environment with action/observation spaces from model config
     log.info(f"Setting up environment with reward task: {cfg.reward.task}")
-    env = loader.setup_environment(model)
+    env = loader.setup_environment(cfg, model, tokenizer, device)
     log.info(f"Environment created with {env.num_envs} parallel envs")
     log.info(f"  Action space: [0, {env.action_space.upper})")
     log.info(f"  Observation space: [0, {env.observation_space.upper})")
     
     # Setup PPO agent with the full model
     log.info("Setting up PPO agent...")
-    ppo_agent = loader.setup_ppo_agent(model, reference_model)
+    ppo_agent = loader.setup_ppo_agent(cfg, model, reference_model, device)
     log.info("PPO agent created")
     
     # Setup logger

@@ -141,7 +141,7 @@ class PPO(nn.Module):
             observation: Token IDs of shape (batch, seq_len).
             
         Returns:
-            Embeddings of shape (batch, n_embd) at the last position.
+            Embeddings of shape (batch, seq_len, n_embd).
         """
         # Convert to long for embedding lookup if needed
         if observation.dtype != torch.long:
@@ -149,23 +149,20 @@ class PPO(nn.Module):
         
         # Get encoder hidden states: (batch, seq_len, n_embd)
         hidden_states = self.model.encoder(observation)
-        
-        # Get embedding at the last position (where we predict the next action)
-        # For autoregressive generation, we predict from the last token
-        z = hidden_states[:, -1, :]  # (batch, n_embd)
-        
-        return z
+        return hidden_states
 
-    def policy(self, observation: torch.Tensor) -> torch.distributions.Categorical:
+    def policy(self, observation: torch.Tensor, time: torch.Tensor) -> torch.distributions.Categorical:
         z = self._encode(observation)
+        z = z[torch.arange(z.shape[0]), time]
         logits = self.policy_head(z)
         return torch.distributions.Categorical(logits=logits)
 
-    def value(self, observation: torch.Tensor) -> torch.Tensor:
+    def value(self, observation: torch.Tensor, time: torch.Tensor) -> torch.Tensor:
         z = self._encode(observation)
+        z = z[torch.arange(z.shape[0]), time]
         return self.value_head(z)
 
-    def forward(self, observation: torch.Tensor) -> tuple[Categorical, torch.Tensor]:
+    def forward(self, observation: torch.Tensor, time: torch.Tensor) -> tuple[Categorical, torch.Tensor]:
         """Forward pass returning action distribution and value estimate.
         
         Args:
@@ -175,6 +172,7 @@ class PPO(nn.Module):
             Tuple of (Categorical distribution over actions, value estimates).
         """
         z = self._encode(observation)
+        z = z[torch.arange(z.shape[0]), time]
         logits = self.policy_head(z)
         value = self.value_head(z).squeeze(-1)  # (batch,)
         return Categorical(logits=logits), value
@@ -201,7 +199,8 @@ class PPO(nn.Module):
         ep_len_out = torch.zeros(E, T, device=device)
         for t in range(T):
             obs_t = timestep.observation # (E, *obs_shape)
-            dist, value = self.forward(obs_t)
+            time = timestep.t  # (E,)
+            dist, value = self.forward(obs_t, time.to(torch.long)) 
             action = dist.sample()  # (E,)
             logp = dist.log_prob(action)  # (E,)
 
@@ -215,7 +214,7 @@ class PPO(nn.Module):
             buffer.value[:, t] = value
             buffer.reward[:, t] = next_ts.reward
             buffer.done[:, t] = next_ts.terminated
-            buffer.time[:, t] = next_ts.t
+            buffer.time[:, t] = timestep.t
 
             episodic_return += next_ts.reward
             episodic_len += 1
@@ -232,7 +231,7 @@ class PPO(nn.Module):
 
         # bootstrap value for the last observation
         
-        last_value = self.value(timestep.observation).squeeze(-1)
+        last_value = self.value(timestep.observation, timestep.t).squeeze(-1)
         buffer.value[:, -1] = last_value
 
         # attach logging info tensors shaped like done
@@ -308,11 +307,12 @@ class PPO(nn.Module):
                 b_obs = flat_obs(buf.obs)[idx]
                 b_actions = flat(buf.action)[idx]
                 b_old_logp = flat(buf.log_prob)[idx]
+                b_t = flat(buf.time)[idx]
                 b_adv = flat(advantages)[idx]
                 b_targ = flat(targets)[idx]
                 b_old_v = flat(values)[idx]  # for value clipping baseline
 
-                dist, value = self.forward(b_obs)
+                dist, value = self.forward(b_obs, b_t.to(torch.long))
                 new_logp = dist.log_prob(b_actions)
                 entropy = dist.entropy().mean()  # tensor, keeps grad
 

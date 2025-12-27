@@ -5,7 +5,7 @@ mixed_dtype: ${sys.dtype}
 compile_model: ${sys.compile}
 always_save_checkpoint: ${sys.always_save_checkpoint}
 ckpt_path: ${ckpt.path}
-eval_interval: 1000 # how many steps before running eval
+eval_interval: 200 # how many steps before running eval
 eval_iters: 5 # how many eval steps to average over for the computation of val loss
 log_interval: 20 # number of train steps before reporting train loss
 max_iters: 100000 # total number of training steps 

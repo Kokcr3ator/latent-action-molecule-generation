@@ -1,6 +1,9 @@
 export DATASET="zinc"
 
-python3 -m scripts.train data=$DATASET model=pretrain-policy train_cfg.batch_size=256 tokenizer.vocab_size=500 \
+python3 -m scripts.train data=$DATASET \
+model=pretrain-policy \
+train_cfg.batch_size=256 \
+tokenizer.vocab_size=500 \
 loader.controllable_gpt_path='/workspace/giortom/InterDiff/ckpts/controllable_gpt_bs_256_vocab500_seed42/best.pt'
 
 # if you want to change the batch_size:
