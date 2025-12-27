@@ -60,6 +60,17 @@ class PretrainPolicyTrainer(TrainerBase):
 
             val_losses.append(float(loss.detach().cpu()))
         self.model.train()
+        
+        # Log generated SMILES to wandb table if logger supports it
+        if self.logger and hasattr(self.logger, 'log_table'):
+            smiles_data = [[smi] for smi in generated_smiles]
+            self.logger.log_table(
+                table_name="generated_molecules",
+                columns=["SMILES"],
+                data=smiles_data,
+                step=self.state.step if hasattr(self.state, 'step') else None
+            )
+        
         return {'val_loss': sum(val_losses) / max(1, len(val_losses)), 
                 'qed': qed_score,
                 'sa': sa,

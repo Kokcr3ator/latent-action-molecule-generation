@@ -290,6 +290,16 @@ class RLTrainerBase:
         task_scores = [self.env.reward_fn.reward_from_smiles(smi) for smi in generated_smiles]
         task_score = np.mean(task_scores) if len(task_scores) > 0 else 0.0
         
+        # Log generated SMILES to wandb table if logger supports it
+        if self.logger and hasattr(self.logger, 'log_table'):
+            smiles_data = [[smi] for smi in generated_smiles]
+            self.logger.log_table(
+                table_name="generated_molecules",
+                columns=["SMILES"],
+                data=smiles_data,
+                step=self.state.env_steps
+            )
+        
         return {
             "eval/mean_reward": sum(total_rewards) / len(total_rewards),
             "eval/mean_episode_length": sum(episode_lengths) / len(episode_lengths),
