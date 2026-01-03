@@ -2,10 +2,13 @@ export DATASET="zinc"
 
 python3 -m scripts.train data=$DATASET model=controllable_gpt wandb_log=False train_cfg.batch_size=256 tokenizer.vocab_size=500
 
+# if you want to change the number of latent actions: 
+# python3 -m scripts.train data=$DATASET model=controllable_gpt model.num_latents=nactions
+
 # if you want to change the batch_size:
-# python3 -m scripts.train data=$DATASET train_cfg.batch_size=bs
+# python3 -m scripts.train data=$DATASET model=controllable_gpt train_cfg.batch_size=bs
 
 # if you want to change the vocabular size: 
-# python3 -m scripts.train data=$DATASET tokenizer.vocab_size=vs
+# python3 -m scripts.train data=$DATASET model=controllable_gpt tokenizer.vocab_size=vs
 
 # in general just have a look in interdiff/conf/config.yaml...

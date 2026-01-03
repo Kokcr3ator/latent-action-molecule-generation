@@ -77,10 +77,9 @@ class PolicyPretrainDataset(Dataset):
                         batch_size: int, 
                         pad_token_id: int, 
                         action_dataset_out_dir: str) -> torch.Tensor:
-        """Load or generate latent actions from tokenized sequences.
+        """Generate latent actions from tokenized sequences.
         
-        Checks if actions dataset exists; if not, generates it using the
-        ControllableGPT model.
+        Generates action dataset using the ControllableGPT model
         
         Args:
             controllable_gpt_path: Path to trained ControllableGPT model.
@@ -92,10 +91,8 @@ class PolicyPretrainDataset(Dataset):
         Returns:
             Tensor of latent action indices.
         """
-        # check if actions dataset already exists
-        actions_path = f"{action_dataset_out_dir}/actions_dataset.safetensors"
-        if not os.path.exists(actions_path):
-            run_action_generation(
+
+        actions_path = run_action_generation(
                 controllable_gpt_path=controllable_gpt_path,
                 dataset_path=dataset_path,
                 batch_size=batch_size,

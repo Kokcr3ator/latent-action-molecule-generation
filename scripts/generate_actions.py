@@ -37,6 +37,9 @@ def run_action_generation(controllable_gpt_path: str, dataset_path: str, batch_s
     log.info(f"Loading ControllableGPT model from {controllable_gpt_path}")
 
     controllable_gpt = ControllableGPT.load(controllable_gpt_path).to(device)
+    n_latent_actions = controllable_gpt.num_latents
+    vocab_size = controllable_gpt.vocab_size
+    log.info(f"Model has {n_latent_actions} latent actions and vocab size {vocab_size}")
 
     log.info(f"Loading tokenized dataset from {dataset_path}")
     tokenized_dataset = _load_tensor_from_safetensors(dataset_path)
@@ -64,7 +67,7 @@ def run_action_generation(controllable_gpt_path: str, dataset_path: str, batch_s
 
     action_dataset = torch.cat(action_dataset, dim=0).to(dtype)
     os.makedirs(out_dir, exist_ok=True)
-    actions_path = os.path.join(out_dir, "actions_dataset.safetensors")
+    actions_path = os.path.join(out_dir, f"actions_dataset_num_latent_actions_{n_latent_actions}_vocab_size_{vocab_size}.safetensors")
     safetensors.torch.save_file({"data": action_dataset},
         actions_path,
     )
