@@ -9,6 +9,7 @@ Usage:
     python scripts/train_ppo.py ckpt.init_from=resume ckpt.path=path/to/pretrained
 """
 import os
+import math
 import logging
 from copy import deepcopy
 
@@ -54,6 +55,17 @@ def main(cfg: DictConfig):
     log.info("Loading pretrained model...")
     model = loader.load_pretrained_model(cfg, device)
     log.info(f"Pretrained model loaded with embedding dim {model.config.n_embd}")
+    
+    if cfg.from_scratch:
+        log.info(f"Reinitializing model weights from scratch with seed {cfg.seed}")
+        model.apply(model._init_weights)
+        for pn, p in model.named_parameters():
+            if pn.endswith("c_proj.weight"):
+                torch.nn.init.normal_(
+                    p, mean=0.0, std=0.02 / math.sqrt(2 * model.config.n_layer)
+                )
+        log.info("Model weights reinitialized from scratch")
+        cfg.ppo.lambda_kld = 0.0  # Disable KL divergence when training from scratch
     
     # Create a reference copy of the pretrained model for KL divergence
     # This copy will remain frozen during training

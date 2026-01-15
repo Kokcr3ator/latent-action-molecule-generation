@@ -1,6 +1,7 @@
 # PPO Finetuning Configuration
 seed: 42
 wandb_log: true
+from_scratch: false
 
 defaults:
   - context
