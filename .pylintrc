@@ -1,0 +1,7 @@
+[MASTER]
+# Set the minimum acceptable code score
+fail-under=4.5
+
+[MESSAGES CONTROL]
+# Disable duplicate-code warnings as they are informational
+disable=duplicate-code
