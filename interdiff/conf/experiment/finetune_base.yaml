@@ -1,2 +1,3 @@
 wandb_project: interdiff
 wandb_run_name: ppo_${reward.task}_envs${ppo.num_envs}_steps${ppo.num_steps}_seed${seed}
+group_id: null

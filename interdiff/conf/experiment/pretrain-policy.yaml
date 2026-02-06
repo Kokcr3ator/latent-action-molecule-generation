@@ -1,2 +1,3 @@
 wandb_project: interdiff
 wandb_run_name: policydistillation_bs${train_cfg.batch_size}_vocab${tokenizer.vocab_size}_seed${seed}
+group_id: null
