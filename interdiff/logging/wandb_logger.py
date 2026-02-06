@@ -6,7 +6,7 @@ from interdiff.logging.logger import Logger
 class WandbLogger(Logger):
     def __init__(self, project: str, name: str, group_id: Optional[str] = None):
         if group_id:
-            wandb.init(project=project, name=name, group_id = group_id)
+            wandb.init(project=project, name=name, group=group_id)
         else:
             wandb.init(project=project, name=name)
     
