@@ -1,2 +1,3 @@
 wandb_project: interdiff
 wandb_run_name: controllable_gpt_bs_${train_cfg.batch_size}_vocab${tokenizer.vocab_size}_seed${seed}
+group_id: null
