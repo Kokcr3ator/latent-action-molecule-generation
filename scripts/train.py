@@ -11,6 +11,8 @@ import logging
 
 import torch
 
+from omegaconf import OmegaConf
+
 from interdiff.config import load_config, instantiate, merge_with_overrides
 from interdiff.utils.torch_utils import seed_all
 from scripts.tokenise_dataset import run_tokenisation
@@ -47,6 +49,9 @@ def main() -> None:
     optim = instantiate(cfg.optimizer, model=model)
     sched = instantiate(cfg.scheduler, optimizer=optim)
     logger = instantiate(cfg.log) if bool(cfg.wandb_log) else None
+    if logger is not None:
+        cfg_dict = OmegaConf.to_container(cfg, resolve=True, throw_on_missing=False)
+        logger.log_config(cfg_dict)
 
     train_cfg.device = 'cuda' if torch.cuda.is_available() else 'cpu'
     trainer = instantiate(cfg.trainer, model=model, scheduler=sched, optimizer=optim, logger=logger, train_cfg=train_cfg)

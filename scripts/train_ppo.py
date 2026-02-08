@@ -16,6 +16,8 @@ from copy import deepcopy
 
 import torch
 
+from omegaconf import OmegaConf
+
 from interdiff.config import load_config, instantiate, merge_with_overrides
 from interdiff.utils.torch_utils import seed_all
 from interdiff.trainers.base_RL import RLTrainerBase
@@ -107,7 +109,10 @@ def main() -> None:
     
     # Setup logger
     logger = instantiate(cfg.log) if cfg.wandb_log else None
-    
+    if logger is not None:
+        cfg_dict = OmegaConf.to_container(cfg, resolve=True, throw_on_missing=False)
+        logger.log_config(cfg_dict)
+
     # Create RL training config
     rl_train_cfg = instantiate(cfg.rl_train_cfg)
     
