@@ -212,3 +212,56 @@ def novelty(smiles_list: List[str], reference_smiles: List[str]) -> float:
     reference_set = set(reference_smiles)
     novel_smiles = set(smiles_list) - reference_set
     return len(novel_smiles) / len(smiles_list) if len(smiles_list) > 0 else 0.0
+
+
+from typing import Callable, Dict
+
+
+# Mapping from task name to property function
+PROPERTY_FN_MAP: Dict[str, Callable[..., float]] = {
+    "qed": qed,
+    "logp": logp,
+    "mw": molecular_weight,
+    "tpsa": tpsa,
+    "sa": synthetic_accessibility,
+}
+
+
+def property_satisfaction_rate(
+    smiles_list: List[str],
+    property_fn: Callable[..., float],
+    **kwargs,
+) -> float:
+    """Compute the fraction of valid molecules that satisfy a property threshold.
+
+    A molecule is considered satisfied when ``property_fn(smi, as_reward=True, **kwargs) >= 1.0``.
+    Invalid SMILES are excluded from both numerator and denominator.
+
+    Args:
+        smiles_list: Generated SMILES strings.
+        property_fn: One of the property scoring functions (e.g. ``qed``, ``logp``).
+        **kwargs: Extra keyword arguments forwarded to *property_fn*.
+
+    Returns:
+        ``satisfied_count / valid_count``, or ``0.0`` when there are no valid molecules.
+    """
+    valid_smiles = filter_valid_smiles(smiles_list)
+    if len(valid_smiles) == 0:
+        return 0.0
+    satisfied = sum(
+        1 for smi in valid_smiles if property_fn(smi, as_reward=True, **kwargs) >= 1.0
+    )
+    return satisfied / len(valid_smiles)
+
+
+def all_property_satisfaction_rates(smiles_list: List[str]) -> Dict[str, float]:
+    """Compute satisfaction percentages for all 5 molecular properties.
+
+    Returns:
+        Dict with keys ``qed_pct_satisfied``, ``logp_pct_satisfied``,
+        ``mw_pct_satisfied``, ``tpsa_pct_satisfied``, ``sa_pct_satisfied``.
+    """
+    return {
+        f"{name}_pct_satisfied": property_satisfaction_rate(smiles_list, fn)
+        for name, fn in PROPERTY_FN_MAP.items()
+    }
