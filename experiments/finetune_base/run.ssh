@@ -6,7 +6,7 @@ ckpt.ckpt_name="best.pt" \
 ppo.num_envs=32
 
 
-# if you want to train from scratch the model add:
+# If you want to train from scratch the model add:
 from_scratch=True
 
 # Use LogP reward
