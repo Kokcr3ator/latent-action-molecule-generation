@@ -1,0 +1,124 @@
+# Configuration for policy distillation (training policy network)
+# This is a standalone config file that replaces Hydra-based configuration
+
+# General settings
+seed: 42
+eval_only: false
+compile: true
+wandb_log: false
+
+# Context
+context:
+  seq_len: 128
+
+# Data
+data:
+  name: zinc
+  smiles: interdiff/data/zinc/zinc.txt
+
+# Tokenizer
+tokenizer:
+  dataset_path: interdiff/data/zinc/zinc.txt
+  use_selfies: false
+  pad_token_id: 0
+  unk_token_id: 1
+  mask_token_id: 2
+  bos_token_id: 3
+  eos_token_id: 4
+  pad_token: "[PAD]"
+  unk_token: "[UNK]"
+  mask_token: "[MASK]"
+  bos_token: "[BOS]"
+  eos_token: "[EOS]"
+  seq_length: 128
+  vocab_size: 500
+  output_dir: interdiff/data/processed/zinc_tok_seqlen_128_vocabsize_500
+
+# Model (Policy Network)
+model:
+  _target_: interdiff.models.PolicyNetwork
+  n_layer: 4
+  n_head: 4
+  n_embd: 384
+  dropout: 0.0
+  context_length: 128
+  lm_head_out_size: 128  # Number of latent actions
+  vocab_size: 500
+  bias: false
+  pad_token_id: 0
+  bos_token_id: 3
+  eos_token_id: 4
+
+# Training configuration
+train_cfg:
+  _target_: interdiff.trainers.base.TrainConfig
+  grad_clip: 1.0
+  device: cuda
+  mixed_dtype: float16
+  compile_model: true
+  always_save_checkpoint: false
+  ckpt_path: policydistillation_bs_256_vocab500_seed42
+  eval_interval: 200
+  eval_iters: 5
+  log_interval: 20
+  max_iters: 100000
+  warmup_iters: 1000
+  batch_size: 256
+  gradient_accumulation_steps: 1
+  n_mols_generate: 200
+  pad_token_id: 0
+  tokenizer_dir: interdiff/data/processed/zinc_tok_seqlen_128_vocabsize_500
+
+# Optimizer
+optim:
+  _target_: interdiff.optim.adam_w
+  learning_rate: 3e-4
+  beta1: 0.9
+  beta2: 0.99
+  weight_decay: 0.0
+  device_type: cuda
+
+# Scheduler
+sched:
+  _target_: torch.optim.lr_scheduler.CosineAnnealingLR
+  eta_min: 1e-5
+  T_max: 100000
+
+# System
+sys:
+  device: cuda
+  dtype: float16
+  always_save_checkpoint: false
+  compile: true
+
+# Wandb logging
+log:
+  _target_: interdiff.logging.wandb_logger.WandbLogger
+  project: interdiff
+  name: policydistillation_bs_256_vocab500_seed42
+
+# Checkpoint
+ckpt:
+  init_from: scratch
+  ckpt_name: smiles_gpt_val_loss_0.9274531602859497.pt
+  path: policydistillation_bs_256_vocab500_seed42
+
+# Trainer
+trainer:
+  _target_: interdiff.trainers.PretrainPolicyTrainer
+  controllable_gpt_path: /workspace/giortom/InterDiff/ckpts/controllable_gpt_bs_256_vocab500_seed42/best.pt
+
+# Data loader
+loader:
+  _target_: interdiff.data.PretrainPolicyLoader.PretrainPolicyLoader
+  controllable_gpt_path: /workspace/giortom/InterDiff/ckpts/controllable_gpt_bs_256_vocab500_seed42/best.pt
+  action_dataset_out_dir: data/processed/zinc
+  pad_token_id: 0
+  seed: 42
+  val_ratio: 0.1
+  batch_size: 256
+
+# Experiment metadata
+experiment:
+  wandb_project: interdiff
+  wandb_run_name: policydistillation_bs_256_vocab500_seed42

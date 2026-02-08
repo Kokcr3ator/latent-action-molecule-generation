@@ -1,0 +1,121 @@
+# Configuration for pretraining controllable GPT model with latent actions
+# This is a standalone config file that replaces Hydra-based configuration
+
+# General settings
+seed: 42
+eval_only: false
+compile: true
+wandb_log: false
+
+# Context
+context:
+  seq_len: 128
+
+# Data
+data:
+  name: zinc
+  smiles: interdiff/data/zinc/zinc.txt
+
+# Tokenizer
+tokenizer:
+  dataset_path: interdiff/data/zinc/zinc.txt
+  use_selfies: false
+  pad_token_id: 0
+  unk_token_id: 1
+  mask_token_id: 2
+  bos_token_id: 3
+  eos_token_id: 4
+  pad_token: "[PAD]"
+  unk_token: "[UNK]"
+  mask_token: "[MASK]"
+  bos_token: "[BOS]"
+  eos_token: "[EOS]"
+  seq_length: 128
+  vocab_size: 500
+  output_dir: interdiff/data/processed/zinc_tok_seqlen_128_vocabsize_500
+
+# Model
+model:
+  _target_: interdiff.models.ControllableGPT
+  n_layer: 4
+  n_head: 4
+  n_embd: 384
+  dropout: 0.0
+  context_length: 128
+  lm_head_out_size: 500
+  vocab_size: 500
+  bias: false
+  pad_token_id: 0
+  bos_token_id: 3
+  eos_token_id: 4
+  latent_action_dim: 384
+  num_latents: 128
+  entropy_weight: 0.01
+  vq_beta: 0.25
+
+# Training configuration
+train_cfg:
+  _target_: interdiff.trainers.TrainConfig
+  grad_clip: 1.0
+  device: cuda
+  mixed_dtype: float16
+  compile_model: true
+  always_save_checkpoint: false
+  ckpt_path: controllable_gpt_bs_256_vocab500_seed42
+  eval_interval: 1000
+  eval_iters: 5
+  log_interval: 20
+  max_iters: 100000
+  warmup_iters: 1000
+  batch_size: 256
+  gradient_accumulation_steps: 1
+  n_mols_generate: 200
+  pad_token_id: 0
+  tokenizer_dir: interdiff/data/processed/zinc_tok_seqlen_128_vocabsize_500
+
+# Optimizer
+optim:
+  _target_: interdiff.optim.adam_w
+  learning_rate: 3e-4
+  beta1: 0.9
+  beta2: 0.99
+  weight_decay: 0.0
+  device_type: cuda
+
+# Scheduler
+sched:
+  _target_: torch.optim.lr_scheduler.CosineAnnealingLR
+  eta_min: 1e-5
+  T_max: 100000
+
+# System
+sys:
+  device: cuda
+  dtype: float16
+  always_save_checkpoint: false
+  compile: true
+
+# Wandb logging
+log:
+  _target_: interdiff.logging.wandb_logger.WandbLogger
+  project: interdiff
+  name: controllable_gpt_bs_256_vocab500_seed42
+
+# Checkpoint
+ckpt:
+  init_from: scratch
+  ckpt_name: smiles_gpt_val_loss_0.9274531602859497.pt
+  path: controllable_gpt_bs_256_vocab500_seed42
+
+# Trainer
+trainer:
+  _target_: interdiff.trainers.ControllableGPTTrainer
+
+# Data loader
+loader:
+  _target_: interdiff.data.GPTLoader.ControllableGPTDataLoader
+
+# Experiment metadata
+experiment:
+  wandb_project: interdiff
+  wandb_run_name: controllable_gpt_bs_256_vocab500_seed42

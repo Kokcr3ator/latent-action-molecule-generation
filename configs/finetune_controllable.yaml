@@ -1,0 +1,110 @@
+# Configuration for PPO finetuning with controllable GPT model
+# This is a standalone config file that replaces Hydra-based configuration
+
+# General settings
+seed: 42
+wandb_log: false
+from_scratch: false
+
+# Context
+context:
+  seq_len: 128
+
+# Data
+data:
+  name: zinc
+  smiles: interdiff/data/zinc/zinc.txt
+
+# Tokenizer
+tokenizer:
+  dataset_path: interdiff/data/zinc/zinc.txt
+  use_selfies: false
+  pad_token_id: 0
+  unk_token_id: 1
+  mask_token_id: 2
+  bos_token_id: 3
+  eos_token_id: 4
+  pad_token: "[PAD]"
+  unk_token: "[UNK]"
+  mask_token: "[MASK]"
+  bos_token: "[BOS]"
+  eos_token: "[EOS]"
+  seq_length: 128
+  vocab_size: 500
+  output_dir: interdiff/data/processed/zinc_tok_seqlen_128_vocabsize_500
+
+# System
+sys:
+  device: cuda
+  dtype: float16
+  always_save_checkpoint: false
+  compile: true
+
+# Wandb logging
+log:
+  _target_: interdiff.logging.wandb_logger.WandbLogger
+  project: interdiff
+  name: ppo_qed_envs32_steps256_seed42
+
+# Checkpoint (for loading pretrained model)
+ckpt:
+  init_from: resume
+  ckpt_name: best.pt
+  path: /workspace/giortom/InterDiff/ckpts/interdiff_bs512_vocab500_seed42
+
+# Data loader for RL (with controllable model)
+loader:
+  _target_: interdiff.data.RLLoader.FinetuneControlable
+  ckpt_controllable_path: /workspace/giortom/InterDiff/ckpts/policydistillation_bs_256_vocab500_seed42
+  ckpt_name: best.pt
+
+# PPO hyperparameters
+ppo:
+  _target_: interdiff.ppo.HParams
+  num_actions: 500
+  num_envs: 32
+  num_steps: 256
+  budget: 1000000
+  num_epochs: 4
+  num_minibatches: 8
+  clip_eps: 0.2
+  ent_coef: 0.01
+  max_episode_length: 128
+  vf_coef: 0.5
+  max_grad_norm: 1.0
+  lr: 1e-6
+  normalise_advantage: true
+  clip_value_loss: true
+  gae_lambda: 0.95
+  discount: 1.0
+  weight_decay: 0.01
+  anneal_lr: true
+  lambda_kld: 0.1
+  log_frequency: 1
+  log_to_wandb: false
+  wandb_project_name: interdiff
+  save_dir: ckpts/ppo_qed_envs32_steps256_seed42
+  eval_frequency: 1
+  random_start: false
+
+# Reward function
+reward:
+  task: qed
+
+# RL training configuration
+rl_train_cfg:
+  _target_: interdiff.trainers.base_RL.RLTrainConfig
+  device: cuda
+  budget: 1000000
+  log_frequency: 1
+  eval_frequency: 1
+  ckpt_path: ckpts/ppo_qed_envs32_steps256_seed42
+  always_save_checkpoint: false
+  n_mols_generate: 100
+  tokenizer_dir: interdiff/data/processed/zinc_tok_seqlen_128_vocabsize_500
+  pad_token_id: 0
+
+# Experiment metadata
+experiment:
+  wandb_project: interdiff
+  wandb_run_name: ppo_qed_envs32_steps256_seed42
