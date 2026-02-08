@@ -1,11 +1,12 @@
 export DATASET="zinc"
 
-python3 -m scripts.train data=$DATASET model=base_gpt wandb_log=False train_cfg.batch_size=512 tokenizer.vocab_size=500
+python3 -m scripts.train --config configs/pretrain_base.yaml
 
 # if you want to change the batch_size:
-# python3 -m scripts.train data=$DATASET train_cfg.batch_size=bs
+# python3 -m scripts.train --config configs/pretrain_base.yaml --override training.batch_size=256
 
-# if you want to change the vocabular size: 
-# python3 -m scripts.train data=$DATASET tokenizer.vocab_size=vs
+# if you want to change the vocabulary size:
+# python3 -m scripts.train --config configs/pretrain_base.yaml --override tokenizer.vocab_size=1000
 
-# in general just have a look in interdiff/conf/config.yaml...
+# combine multiple overrides:
+# python3 -m scripts.train --config configs/pretrain_base.yaml --override training.batch_size=256 tokenizer.vocab_size=1000

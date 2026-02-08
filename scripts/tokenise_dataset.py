@@ -3,12 +3,12 @@ from dataclasses import dataclass
 from typing import List, Optional
 import os
 import logging
+import argparse
 
-import hydra
-from hydra.utils import to_absolute_path
 from omegaconf import DictConfig, MISSING
 import torch
 
+from interdiff.config import load_config, merge_with_overrides, to_absolute_path
 from interdiff.io import load_smiles, save_tokenised_dataset
 from interdiff.tokenise import train_smiles_tokeniser, train_selfies_tokeniser
 
@@ -113,8 +113,19 @@ def run_tokenisation(cfg: DictConfig) -> str:
     log.info(f"Tokenized dataset saved to {save_path}")
     return save_path
 
-@hydra.main(version_base=None, config_path="../interdiff/conf", config_name="config")
-def main(cfg: DictConfig) -> None:
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Tokenise a SMILES dataset.")
+    parser.add_argument("--config", type=str, required=True,
+                        help="Path to experiment YAML config file.")
+    parser.add_argument("--override", nargs="*", default=[],
+                        help="Dotlist overrides, e.g. tokenizer.vocab_size=1000")
+    return parser.parse_args()
+
+
+def main() -> None:
+    args = parse_args()
+    cfg = load_config(args.config)
+    cfg = merge_with_overrides(cfg, args.override)
     save_path = run_tokenisation(cfg)
     print(save_path)
 
