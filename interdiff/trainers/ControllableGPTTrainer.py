@@ -6,6 +6,11 @@ import torch
 import torch.nn.functional as F
 from torch.nn.utils import clip_grad_norm_
 
+try:
+    import wandb
+except ImportError:
+    wandb = None
+
 from .base import TrainerBase
 
 class ControllableGPTTrainer(TrainerBase):
@@ -107,6 +112,7 @@ class ControllableGPTTrainer(TrainerBase):
                 'vq_commit_loss': vq_loss_dict['commit_loss'],
                 'vq_entropy_loss': vq_loss_dict['entropy_loss'],
                 'vq_entropy': vq_loss_dict['entropy'],
+                'vq_indices': vq_loss_dict['indices'],
             }
 
     def fit(self, train_dataloader: Iterable, val_dataloader: Iterable):
@@ -205,13 +211,18 @@ class ControllableGPTTrainer(TrainerBase):
             'vq_entropy': 0.0,
         }
         
+        all_indices = []
+
         for i, batch in zip(range(self.eval_iters), val_dataloader):
             with torch.amp.autocast(device_type=self.device, dtype=self.mixed_dtype, enabled=self.mixed_dtype != torch.float32):
                 loss_dict = self.forward_loss_with_components(batch)
             
             for key in accumulated_metrics:
                 accumulated_metrics[key] += float(loss_dict[key].detach().cpu())
+            all_indices.append(loss_dict['vq_indices'].detach().cpu())
         
+        all_indices = torch.cat(all_indices).view(-1)
+
         self.model.train()
         
         # Compute averages and format output
@@ -227,4 +238,11 @@ class ControllableGPTTrainer(TrainerBase):
             'val_vq_entropy_loss': accumulated_metrics['vq_entropy_loss'] / num_batches,
             'val_vq_entropy': accumulated_metrics['vq_entropy'] / num_batches,
         }
+
+        if self.logger is not None and wandb is not None:
+            result['val/action_histogram'] = wandb.Histogram(
+                all_indices.numpy(),
+                num_bins=self.model.lam.vq.num_latents,
+            )
+
         return result

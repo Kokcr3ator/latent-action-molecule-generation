@@ -455,6 +455,7 @@ class VectorQuantizer(SerialisableModule):
             'commit_loss': commit_loss,
             'entropy_loss': entropy_loss,
             'entropy': entropy,
+            'indices': indices,
         }
         return z_q, vq_loss_dict, indices
 
