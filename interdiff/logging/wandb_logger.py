@@ -10,6 +10,9 @@ class WandbLogger(Logger):
     def log(self, metrics: dict):
         wandb.log(metrics)
     
+    def log_config(self, config: dict):
+        wandb.config.update(config)
+
     def log_table(self, table_name: str, columns: List[str], data: List[List], step: Optional[int] = None):
         """Log a table to wandb.
         

@@ -10,7 +10,7 @@ experiment:
 seed: 42
 eval_only: false
 compile: true
-wandb_log: false
+wandb_log: true
 
 # ===== CONTEXT =====
 context:
