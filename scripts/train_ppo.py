@@ -4,20 +4,19 @@ This script finetunes a pretrained GPT model using Proximal Policy Optimization 
 for molecule generation with a specified reward function (e.g., QED, LogP).
 
 Usage:
-    python scripts/train_ppo.py
-    python scripts/train_ppo.py reward.task=logp ppo.num_envs=64
-    python scripts/train_ppo.py ckpt.init_from=resume ckpt.path=path/to/pretrained
+    python scripts/train_ppo.py --config configs/finetune_base.yaml
+    python scripts/train_ppo.py --config configs/finetune_base.yaml --override reward.task=logp ppo.num_envs=64
+    python scripts/train_ppo.py --config configs/finetune_controllable.yaml --override ckpt.init_from=resume ckpt.path=path/to/pretrained
 """
 import os
 import math
 import logging
+import argparse
 from copy import deepcopy
 
-import hydra
-from omegaconf import DictConfig
-from hydra.utils import instantiate
 import torch
 
+from interdiff.config import load_config, instantiate, merge_with_overrides
 from interdiff.utils.torch_utils import seed_all
 from interdiff.trainers.base_RL import RLTrainerBase
 from interdiff.io import load_tokenizer
@@ -25,9 +24,23 @@ from scripts.tokenise_dataset import run_tokenisation
 from interdiff.data.GPTLoader import NextTokenDataset
 from torch.utils.data import DataLoader
 
-@hydra.main(version_base=None, config_path="../interdiff/conf", config_name="ppo_config")
-def main(cfg: DictConfig):
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="PPO finetuning from a YAML config.")
+    parser.add_argument("--config", type=str, required=True,
+                        help="Path to experiment YAML config file.")
+    parser.add_argument("--override", nargs="*", default=[],
+                        help="Dotlist overrides, e.g. reward.task=logp ppo.num_envs=64")
+    return parser.parse_args()
+
+
+def main() -> None:
     """Main PPO finetuning entry point."""
+    args = parse_args()
+
+    # Load and optionally override config
+    cfg = load_config(args.config)
+    cfg = merge_with_overrides(cfg, args.override)
     
     logging.basicConfig(
         level=logging.INFO,

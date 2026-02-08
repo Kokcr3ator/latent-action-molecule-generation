@@ -1,0 +1,115 @@
+# =============================================================================
+# Finetune Base GPT — PPO finetuning of a pretrained base GPT
+# =============================================================================
+
+# ===== EXPERIMENT =====
+experiment:
+  wandb_project: interdiff
+  wandb_run_name: ppo_${reward.task}_envs${ppo.num_envs}_steps${ppo.num_steps}_seed${seed}
+
+seed: 42
+wandb_log: true
+from_scratch: false # whether to initialize from pretrained base GPT or randomly
+
+# ===== CONTEXT =====
+context:
+  seq_len: 128
+
+# ===== TOKENIZER =====
+tokenizer:
+  dataset_path: ${data.smiles}
+  output_dir: interdiff/data/processed/${data.name}_tok_seqlen_${context.seq_len}_vocabsize_${tokenizer.vocab_size}
+  use_selfies: false
+  vocab_size: 500
+  pad_token: "[PAD]"
+  unk_token: "[UNK]"
+  mask_token: "[MASK]"
+  bos_token: "[BOS]"
+  eos_token: "[EOS]"
+  seq_length: ${context.seq_len}
+  pad_token_id: 0
+  unk_token_id: 1
+  mask_token_id: 2
+  bos_token_id: 3
+  eos_token_id: 4
+
+# ===== DATA =====
+data:
+  name: zinc
+  smiles: interdiff/data/zinc/zinc.txt
+  pad_token_id: ${tokenizer.pad_token_id}
+
+# ===== SYSTEM =====
+sys:
+  device: cuda
+  dtype: float16
+  always_save_checkpoint: false
+  compile: true
+
+# ===== LOADER =====
+loader:
+  _target_: interdiff.data.RLLoader.FinetuneBaseLoader
+
+# ===== OPTIMIZER =====
+optim:
+  beta1: 0.9
+  beta2: 0.99
+
+# ===== PPO =====
+ppo:
+  _target_: interdiff.ppo.HParams
+  num_actions: ${tokenizer.vocab_size}
+  num_envs: 16
+  num_steps: 256
+  budget: 1000000
+  num_epochs: 4
+  num_minibatches: 8
+  clip_eps: 0.2
+  ent_coef: 0.01
+  max_episode_length: ${context.seq_len}
+  vf_coef: 0.5
+  max_grad_norm: 1.0
+  lr: 1e-6
+  normalise_advantage: true
+  clip_value_loss: true
+  gae_lambda: 0.95
+  discount: 1.0
+  weight_decay: 0.01
+  anneal_lr: true
+  lambda_kld: 0.1
+  log_frequency: 1
+  log_to_wandb: ${wandb_log}
+  wandb_project_name: ${experiment.wandb_project}
+  save_dir: ${rl_train_cfg.ckpt_path}
+  eval_frequency: 1
+  random_start: false
+
+# ===== REWARD =====
+reward:
+  task: qed    # Options: qed, logp, mw, tpsa, sa
+
+# ===== RL TRAINING =====
+rl_train_cfg:
+  _target_: interdiff.trainers.base_RL.RLTrainConfig
+  device: ${sys.device}
+  budget: ${ppo.budget}
+  log_frequency: ${ppo.log_frequency}
+  eval_frequency: ${ppo.eval_frequency}
+  ckpt_path: ckpts/${experiment.wandb_run_name}
+  always_save_checkpoint: false
+  n_mols_generate: 100
+  tokenizer_dir: ${tokenizer.output_dir}
+  pad_token_id: ${tokenizer.pad_token_id}
+
+# ===== LOGGING =====
+log:
+  _target_: interdiff.logging.wandb_logger.WandbLogger
+  project: ${experiment.wandb_project}
+  name: ${experiment.wandb_run_name}
+  group: ppo_base
+
+# ===== CHECKPOINT =====
+ckpt:
+  init_from: scratch
+  ckpt_name: smiles_gpt_val_loss_0.9274531602859497.pt
+  path: ${experiment.wandb_run_name}

@@ -2,7 +2,7 @@ import logging
 from pathlib import Path
 from abc import ABC, abstractmethod
 
-from hydra.utils import instantiate
+from interdiff.config import instantiate
 import torch
 
 from interdiff.models import GPT, PolicyNetwork, ControllableGPT, DynamicsModel, LatentActionModel
