@@ -5,7 +5,7 @@
 # ===== EXPERIMENT =====
 experiment:
   wandb_project: interdiff
-  wandb_run_name: policydistillation_bs${training.batch_size}_vocab${tokenizer.vocab_size}_seed${seed}
+  wandb_run_name: policydistillation_nlatents${model.lm_head_out_size}_vocab${tokenizer.vocab_size}_seed${seed}
 
 seed: 42
 eval_only: false

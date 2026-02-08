@@ -5,7 +5,7 @@
 # ===== EXPERIMENT =====
 experiment:
   wandb_project: interdiff
-  wandb_run_name: controllable_gpt_bs_${training.batch_size}_vocab${tokenizer.vocab_size}_seed${seed}
+  wandb_run_name: pretrain_controllable_vocab${tokenizer.vocab_size}_nlatent${model.num_latents}_seed${seed}
 
 seed: 42
 eval_only: false
