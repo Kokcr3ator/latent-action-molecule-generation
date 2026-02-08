@@ -1,16 +1,14 @@
 export DATASET="zinc"
 
-python3 -m scripts.train data=$DATASET \
-model=pretrain-policy \
-train_cfg.batch_size=256 \
-tokenizer.vocab_size=500 \
-model.lm_head_out_size = \ # SET THIS WITH THE NUMBER OF LATENT ACTIONS
-loader.controllable_gpt_path='/workspace/giortom/InterDiff/ckpts/controllable_gpt_bs_256_vocab500_seed42/best.pt'
+python3 -m scripts.train --config configs/policy_distillation.yaml \
+  --override loader.controllable_gpt_path='/path/to/ckpts/controllable_gpt/best.pt'
+
+# Set lm_head_out_size to match the number of latent actions:
+# python3 -m scripts.train --config configs/policy_distillation.yaml \
+#   --override loader.controllable_gpt_path='/path/to/ckpts/controllable_gpt/best.pt' \
+#              model.lm_head_out_size=128
 
 # if you want to change the batch_size:
-# python3 -m scripts.train data=$DATASET train_cfg.batch_size=bs
-
-# if you want to change the vocabular size: 
-# python3 -m scripts.train data=$DATASET tokenizer.vocab_size=vs
-
-# in general just have a look in interdiff/conf/config.yaml...
+# python3 -m scripts.train --config configs/policy_distillation.yaml \
+#   --override loader.controllable_gpt_path='/path/to/ckpts/controllable_gpt/best.pt' \
+#              training.batch_size=512

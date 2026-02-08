@@ -1,0 +1,126 @@
+# =============================================================================
+# Pretrain ControllableGPT — all settings for VQ-based latent action pretraining
+# =============================================================================
+
+# ===== EXPERIMENT =====
+experiment:
+  wandb_project: interdiff
+  wandb_run_name: pretrain_controllable_vocab${tokenizer.vocab_size}_nlatent${model.num_latents}_seed${seed}
+
+seed: 42
+eval_only: false
+compile: true
+wandb_log: false
+
+# ===== CONTEXT =====
+context:
+  seq_len: 128
+
+# ===== TOKENIZER =====
+tokenizer:
+  dataset_path: ${data.smiles}
+  output_dir: interdiff/data/processed/${data.name}_tok_seqlen_${context.seq_len}_vocabsize_${tokenizer.vocab_size}
+  use_selfies: false
+  vocab_size: 500
+  pad_token: "[PAD]"
+  unk_token: "[UNK]"
+  mask_token: "[MASK]"
+  bos_token: "[BOS]"
+  eos_token: "[EOS]"
+  seq_length: ${context.seq_len}
+  pad_token_id: 0
+  unk_token_id: 1
+  mask_token_id: 2
+  bos_token_id: 3
+  eos_token_id: 4
+
+# ===== DATA =====
+data:
+  name: zinc
+  smiles: interdiff/data/zinc/zinc.txt
+  pad_token_id: ${tokenizer.pad_token_id}
+
+# ===== SYSTEM =====
+sys:
+  device: cuda
+  dtype: float16
+  always_save_checkpoint: false
+  compile: true
+
+# ===== MODEL =====
+model:
+  _target_: interdiff.models.ControllableGPT
+  n_layer: 4
+  n_head: 4
+  n_embd: 384
+  dropout: 0.0
+  context_length: ${context.seq_len}
+  lm_head_out_size: ${tokenizer.vocab_size}
+  vocab_size: ${tokenizer.vocab_size}
+  bias: false
+  pad_token_id: ${tokenizer.pad_token_id}
+  bos_token_id: ${tokenizer.bos_token_id}
+  eos_token_id: ${tokenizer.eos_token_id}
+  latent_action_dim: 384
+  num_latents: 128
+  entropy_weight: 0.01
+  vq_beta: 0.25
+
+# ===== TRAINING =====
+training:
+  _target_: interdiff.trainers.base.TrainConfig
+  grad_clip: 1.0
+  device: ${sys.device}
+  mixed_dtype: ${sys.dtype}
+  compile_model: ${sys.compile}
+  always_save_checkpoint: ${sys.always_save_checkpoint}
+  ckpt_path: ${ckpt.path}
+  eval_interval: 200
+  eval_iters: 5
+  log_interval: 20
+  max_iters: 10000
+  warmup_iters: 1000
+  batch_size: 512
+  gradient_accumulation_steps: 1
+  n_mols_generate: 500
+  pad_token_id: ${tokenizer.pad_token_id}
+  tokenizer_dir: ${tokenizer.output_dir}
+
+# ===== TRAINER =====
+trainer:
+  _target_: interdiff.trainers.ControllableGPTTrainer
+
+# ===== LOADER =====
+loader:
+  _target_: interdiff.data.ControllableGPTLoader.ControllableGPTLoader
+  batch_size: ${training.batch_size}
+  seed: ${seed}
+  val_ratio: 0.1
+
+# ===== OPTIMIZER =====
+optimizer:
+  _target_: interdiff.optim.adam_w
+  learning_rate: 3e-4
+  beta1: 0.9
+  beta2: 0.99
+  weight_decay: 0.0
+  device_type: ${sys.device}
+
+# ===== SCHEDULER =====
+scheduler:
+  _target_: torch.optim.lr_scheduler.CosineAnnealingLR
+  eta_min: 1e-5
+  T_max: ${training.max_iters}
+
+# ===== LOGGING =====
+log:
+  _target_: interdiff.logging.wandb_logger.WandbLogger
+  project: ${experiment.wandb_project}
+  name: ${experiment.wandb_run_name}
+  group: pretrain_controllables
+
+# ===== CHECKPOINT =====
+ckpt:
+  init_from: scratch
+  ckpt_name: smiles_gpt_val_loss_0.9274531602859497.pt
+  path: ${experiment.wandb_run_name}

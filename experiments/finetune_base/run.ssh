@@ -1,19 +1,18 @@
 # Load from pretrained model
-python3 -m scripts.train_ppo wandb_log=false \
-ckpt.init_from=resume \
-ckpt.path="/workspace/giortom/InterDiff/ckpts/interdiff_bs512_vocab500_seed42" \
-ckpt.ckpt_name="best.pt" \
-ppo.num_envs=32
-
+python3 -m scripts.train_ppo --config configs/finetune_base.yaml \
+  --override ckpt.init_from=resume \
+             ckpt.path="/path/to/ckpts/pretrain_base" \
+             ckpt.ckpt_name="best.pt" \
+             ppo.num_envs=32
 
 # if you want to train from scratch the model add:
-from_scratch=True
+# --override from_scratch=True
 
 # Use LogP reward
-# python scripts/train_ppo.py reward=logp
+# python3 -m scripts.train_ppo --config configs/finetune_base.yaml --override reward.task=logp
 
 # Customize PPO hyperparameters
-# python scripts/train_ppo.py ppo.num_envs=64 ppo.lr=1e-4 ppo.budget=2000000
+# python3 -m scripts.train_ppo --config configs/finetune_base.yaml --override ppo.num_envs=64 ppo.lr=1e-4 ppo.budget=2000000
 
 # Disable wandb logging
-# python scripts/train_ppo.py wandb_log=false
+# python3 -m scripts.train_ppo --config configs/finetune_base.yaml --override wandb_log=false
