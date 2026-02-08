@@ -17,7 +17,7 @@ from interdiff.io import load_tokenizer
 from interdiff.ppo import PPO
 from interdiff.envs import Env, Timestep
 from interdiff.utils.eval_utils import tokens_to_smiles
-from interdiff.metrics import validity, uniqueness, novelty
+from interdiff.metrics import validity, uniqueness, novelty, property_satisfaction_rate, PROPERTY_FN_MAP
 
 
 @dataclass
@@ -289,6 +289,12 @@ class RLTrainerBase:
         task = self.env.reward_fn.task
         task_scores = [self.env.reward_fn.reward_from_smiles(smi) for smi in generated_smiles]
         task_score = np.mean(task_scores) if len(task_scores) > 0 else 0.0
+
+        # Satisfaction rate over valid molecules only
+        if task in PROPERTY_FN_MAP:
+            task_pct = property_satisfaction_rate(generated_smiles, PROPERTY_FN_MAP[task])
+        else:
+            task_pct = 0.0
         
         # Log generated SMILES to wandb table if logger supports it
         if self.logger and hasattr(self.logger, 'log_table'):
@@ -305,6 +311,7 @@ class RLTrainerBase:
             "eval/mean_episode_length": sum(episode_lengths) / len(episode_lengths),
             "eval/num_episodes": len(total_rewards),
             f"eval/{task}": task_score,
+            f"{task}_pct_satisfied": task_pct,
             "eval/validity": valid,
             "eval/uniqueness": unique,
             "eval/novelty": novel,

@@ -2,13 +2,11 @@ from typing import Dict, Iterable
 
 import torch
 import torch.nn.functional as F
-import numpy as np
 
 from .base import TrainerBase
 from interdiff.models import ControllableGPT
 from interdiff.utils.eval_utils import tokens_to_smiles
-from interdiff.metrics import ( qed, synthetic_accessibility,\
-                                logp, molecular_weight, tpsa,\
+from interdiff.metrics import (all_property_satisfaction_rates,
                                 validity, uniqueness, novelty)
 
 class PretrainPolicyTrainer(TrainerBase):
@@ -34,20 +32,7 @@ class PretrainPolicyTrainer(TrainerBase):
                                                         n_mols = self.n_mols_generate)
                 generated_smiles = tokens_to_smiles(generated_tokens, tokenizer=self.tokenizer)
 
-                qed_scores = [qed(smi) for smi in generated_smiles]
-                qed_score = np.mean(qed_scores) if len(qed_scores) > 0 else 0.0
-
-                sa_scores = [synthetic_accessibility(smi) for smi in generated_smiles]
-                sa = np.mean(sa_scores) if len(sa_scores) > 0 else 0
-
-                logp_scores_list = [logp(smi) for smi in generated_smiles]
-                logp_scores = np.mean(logp_scores_list) if len(logp_scores_list) > 0 else 0
-
-                mw_list = [molecular_weight(smi) for smi in generated_smiles]
-                mw = np.mean(mw_list) if len(mw_list) > 0 else 0
-
-                tpsa_list = [tpsa(smi) for smi in generated_smiles]
-                tpsa_scores = np.mean(tpsa_list) if len(tpsa_list) > 0 else 0
+                pct_metrics = all_property_satisfaction_rates(generated_smiles)
 
                 valid = validity(generated_smiles)
                 unique = uniqueness(generated_smiles)
@@ -71,12 +56,8 @@ class PretrainPolicyTrainer(TrainerBase):
                 step=self.state.step if hasattr(self.state, 'step') else None
             )
         
-        return {'val_loss': sum(val_losses) / max(1, len(val_losses)), 
-                'qed': qed_score,
-                'sa': sa,
-                'logp': logp_scores,
-                'mw': mw,
-                'tpsa': tpsa_scores,
+        return {'val_loss': sum(val_losses) / max(1, len(val_losses)),
+                **pct_metrics,
                 'validity': valid,
                 'uniqueness': unique,
                 'novelty': novel}
