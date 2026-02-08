@@ -1,7 +1,7 @@
 # Load from pretrained model
 python3 -m scripts.train_ppo --config configs/finetune_base.yaml \
   --override ckpt.init_from=resume \
-             ckpt.path="/path/to/ckpts/interdiff_bs512_vocab500_seed42" \
+             ckpt.path="/path/to/ckpts/pretrain_base" \
              ckpt.ckpt_name="best.pt" \
              ppo.num_envs=32
 

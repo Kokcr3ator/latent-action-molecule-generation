@@ -1,9 +1,9 @@
 # Load from pretrained model
 python3 -m scripts.train_ppo --config configs/finetune_controllable.yaml \
   --override ckpt.init_from=resume \
-             ckpt.path="/path/to/ckpts/interdiff_bs512_vocab500_seed42" \
+             ckpt.path="/path/to/ckpts/policydistillation" \
              ckpt.ckpt_name="best.pt" \
-             loader.ckpt_controllable_path="/path/to/ckpts/policydistillation_bs_256_vocab500_seed42" \
+             loader.ckpt_controllable_path="/path/to/ckpts/pretrain_controllable" \
              loader.ckpt_name="best.pt"
 
 # If you want to train from scratch the model add:
