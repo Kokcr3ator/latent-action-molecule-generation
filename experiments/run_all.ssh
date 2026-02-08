@@ -1,9 +1,80 @@
-conda create -n interdiff python=3.9 -y
-conda activate interdiff
-pip install -e ../interdiff
+#!/usr/bin/env bash
+set -e
 
-./pretrain_base/run.ssh
-./pretrain_controllable/run.ssh
-./policy_distillation/run.ssh
-./finetune_base/run.ssh
-./finetune_controllable/run.ssh
+###############################################################################
+# Full pipeline: 22 runs total
+#   Stage 1: Pretrain base (1 run)
+#   Stage 2: Pretrain controllable (3 runs — one per num_latents)
+#   Stage 3: Policy distillation (3 runs — one per controllable)
+#   Stage 4: Finetune base / PPO (6 runs — one per seed, logp)
+#   Stage 5: Finetune controllable / PPO (9 runs — 3 num_latents × 3 seeds, logp)
+###############################################################################
+
+# --- Variables ---------------------------------------------------------------
+PRETRAIN_SEED=42
+FINETUNE_SEEDS=(42 43 44)
+FINETUNE_BASE_SEEDS = (42 43 44 45 46 47)
+NUM_LATENTS_LIST=(8 32 128)
+VOCAB_SIZE=500
+export DATASET="zinc"
+
+# --- Stage 1: Pretrain base -------------------------------------------------
+echo "===== Stage 1/5: Pretrain base (seed=${PRETRAIN_SEED}) ====="
+python3 -m scripts.train \
+  --config configs/pretrain_base.yaml \
+  --override seed=${PRETRAIN_SEED}
+
+BASE_CKPT_DIR="ckpts/pretrain_base_vocab${VOCAB_SIZE}_seed${PRETRAIN_SEED}"
+
+# --- Stage 2: Pretrain controllable ------------------------------------------
+echo "===== Stage 2/5: Pretrain controllable ====="
+for N in "${NUM_LATENTS_LIST[@]}"; do
+  echo "  -- num_latents=${N}, seed=${PRETRAIN_SEED}"
+  python3 -m scripts.train \
+    --config configs/pretrain_controllable.yaml \
+    --override seed=${PRETRAIN_SEED} \
+               model.num_latents=${N}
+done
+
+# --- Stage 3: Policy distillation -------------------------------------------
+echo "===== Stage 3/5: Policy distillation ====="
+for N in "${NUM_LATENTS_LIST[@]}"; do
+  echo "  -- num_latents=${N}, seed=${PRETRAIN_SEED}"
+  python3 -m scripts.train \
+    --config configs/policy_distillation.yaml \
+    --override seed=${PRETRAIN_SEED} \
+               loader.controllable_gpt_path="ckpts/pretrain_controllable_vocab${VOCAB_SIZE}_nlatent${N}_seed${PRETRAIN_SEED}/best.pt" \
+               model.lm_head_out_size=${N}
+done
+
+# --- Stage 4: Finetune base (PPO, logp) -------------------------------------
+echo "===== Stage 4/5: Finetune base (logp) ====="
+for S in "${FINETUNE_BASE_SEEDS[@]}"; do
+  echo "  -- seed=${S}"
+  python3 -m scripts.train_ppo \
+    --config configs/finetune_base.yaml \
+    --override seed=${S} \
+               reward.task=logp \
+               ckpt.init_from=resume \
+               ckpt.path="${BASE_CKPT_DIR}" \
+               ckpt.ckpt_name="best.pt"
+done
+
+# --- Stage 5: Finetune controllable (PPO, logp) -----------------------------
+echo "===== Stage 5/5: Finetune controllable (logp) ====="
+for N in "${NUM_LATENTS_LIST[@]}"; do
+  for S in "${FINETUNE_SEEDS[@]}"; do
+    echo "  -- num_latents=${N}, seed=${S}"
+    python3 -m scripts.train_ppo \
+      --config configs/finetune_controllable.yaml \
+      --override seed=${S} \
+                 reward.task=logp \
+                 ckpt.init_from=resume \
+                 ckpt.path="ckpts/policydistillation_nlatents${N}_vocab${VOCAB_SIZE}_seed${PRETRAIN_SEED}" \
+                 ckpt.ckpt_name="best.pt" \
+                 loader.ckpt_controllable_path="ckpts/pretrain_controllable_vocab${VOCAB_SIZE}_nlatent${N}_seed${PRETRAIN_SEED}" \
+                 loader.ckpt_name="best.pt"
+  done
+done
+
+echo "===== All 22 runs complete ====="
