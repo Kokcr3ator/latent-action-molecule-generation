@@ -8,7 +8,12 @@ class WandbLogger(Logger):
         wandb.init(project=project, name=name, group=group)
     
     def log(self, metrics: dict):
-        wandb.log(metrics)
+        metrics = dict(metrics)
+        step = metrics.pop("step", None)
+        if step is not None:
+            wandb.log(metrics, step=step)
+        else:
+            wandb.log(metrics)
     
     def log_config(self, config: dict):
         wandb.config.update(config)
@@ -23,10 +28,7 @@ class WandbLogger(Logger):
             step: Optional step number to associate with the table.
         """
         table = wandb.Table(columns=columns, data=data)
-        log_dict = {table_name: table}
-        if step is not None:
-            log_dict["step"] = step
-        wandb.log(log_dict)
+        wandb.log({table_name: table}, step=step)
     
     def finalize(self):
         wandb.finish()

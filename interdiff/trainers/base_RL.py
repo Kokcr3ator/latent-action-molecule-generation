@@ -191,7 +191,6 @@ class RLTrainerBase:
         print(f"Eval @ update {self.state.update}: {metrics}")
         if self.logger:
             metrics["step"] = self.state.env_steps
-            metrics["update"] = self.state.update
             self.logger.log(metrics)
     
     @torch.no_grad()
