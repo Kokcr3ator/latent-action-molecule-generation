@@ -237,6 +237,7 @@ class ControllableGPTTrainer(TrainerBase):
             'val_vq_commit_loss': accumulated_metrics['vq_commit_loss'] / num_batches,
             'val_vq_entropy_loss': accumulated_metrics['vq_entropy_loss'] / num_batches,
             'val_vq_entropy': accumulated_metrics['vq_entropy'] / num_batches,
+            'val/num_latent': int(all_indices.unique().numel()),
         }
 
         if self.logger is not None and wandb is not None:
