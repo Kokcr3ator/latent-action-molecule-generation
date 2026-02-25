@@ -13,7 +13,7 @@ set -e
 # --- Variables ---------------------------------------------------------------
 PRETRAIN_SEED=42
 FINETUNE_SEEDS=(42 43 44)
-FINETUNE_BASE_SEEDS = (42 43 44 45 46 47)
+FINETUNE_BASE_SEEDS=(42 43 44 45 46 47)
 NUM_LATENTS_LIST=(8 32 128)
 VOCAB_SIZE=500
 export DATASET="zinc"
@@ -73,8 +73,132 @@ for N in "${NUM_LATENTS_LIST[@]}"; do
                  ckpt.path="ckpts/policydistillation_nlatents${N}_vocab${VOCAB_SIZE}_seed${PRETRAIN_SEED}" \
                  ckpt.ckpt_name="best.pt" \
                  loader.ckpt_controllable_path="ckpts/pretrain_controllable_vocab${VOCAB_SIZE}_nlatent${N}_seed${PRETRAIN_SEED}" \
-                 loader.ckpt_name="best.pt"
+                 loader.ckpt_name="best.pt" \
+                 experiment.wandb_run_name="ppo_\${reward.task}_controllable_nlatents${N}_envs\${ppo.num_envs}_steps\${ppo.num_steps}_seed\${seed}"
   done
 done
 
-echo "===== All 22 runs complete ====="
+# --- Stage 6: Finetune base (PPO, sa) -------------------------------------
+echo "===== Stage 6/7: Finetune base (sa) ====="
+for S in "${FINETUNE_BASE_SEEDS[@]}"; do
+  echo "  -- seed=${S}"
+  python3 -m scripts.train_ppo \
+    --config configs/finetune_base.yaml \
+    --override seed=${S} \
+               reward.task=sa \
+               ckpt.init_from=resume \
+               ckpt.path="${BASE_CKPT_DIR}" \
+               ckpt.ckpt_name="best.pt"
+done
+
+# --- Stage 7: Finetune controllable (PPO, sa) -----------------------------
+echo "===== Stage 7/7: Finetune controllable (sa) ====="
+for N in "${NUM_LATENTS_LIST[@]}"; do
+  for S in "${FINETUNE_SEEDS[@]}"; do
+    echo "  -- num_latents=${N}, seed=${S}"
+    python3 -m scripts.train_ppo \
+      --config configs/finetune_controllable.yaml \
+      --override seed=${S} \
+                 reward.task=sa \
+                 ckpt.init_from=resume \
+                 ckpt.path="ckpts/policydistillation_nlatents${N}_vocab${VOCAB_SIZE}_seed${PRETRAIN_SEED}" \
+                 ckpt.ckpt_name="best.pt" \
+                 loader.ckpt_controllable_path="ckpts/pretrain_controllable_vocab${VOCAB_SIZE}_nlatent${N}_seed${PRETRAIN_SEED}" \
+                 loader.ckpt_name="best.pt" \
+                 experiment.wandb_run_name="ppo_\${reward.task}_controllable_nlatents${N}_envs\${ppo.num_envs}_steps\${ppo.num_steps}_seed\${seed}"
+  done
+done
+
+# --- Stage 8: Finetune base (PPO, qed) -------------------------------------
+echo "===== Stage 8/9: Finetune base (qed) ====="
+for S in "${FINETUNE_BASE_SEEDS[@]}"; do
+  echo "  -- seed=${S}"
+  python3 -m scripts.train_ppo \
+    --config configs/finetune_base.yaml \
+    --override seed=${S} \
+               reward.task=qed \
+               ckpt.init_from=resume \
+               ckpt.path="${BASE_CKPT_DIR}" \
+               ckpt.ckpt_name="best.pt"
+done
+
+# --- Stage 9: Finetune controllable (PPO, qed) -----------------------------
+echo "===== Stage 9/9: Finetune controllable (qed) ====="
+for N in "${NUM_LATENTS_LIST[@]}"; do
+  for S in "${FINETUNE_SEEDS[@]}"; do
+    echo "  -- num_latents=${N}, seed=${S}"
+    python3 -m scripts.train_ppo \
+      --config configs/finetune_controllable.yaml \
+      --override seed=${S} \
+                 reward.task=qed \
+                 ckpt.init_from=resume \
+                 ckpt.path="ckpts/policydistillation_nlatents${N}_vocab${VOCAB_SIZE}_seed${PRETRAIN_SEED}" \
+                 ckpt.ckpt_name="best.pt" \
+                 loader.ckpt_controllable_path="ckpts/pretrain_controllable_vocab${VOCAB_SIZE}_nlatent${N}_seed${PRETRAIN_SEED}" \
+                 loader.ckpt_name="best.pt" \
+                 experiment.wandb_run_name="ppo_\${reward.task}_controllable_nlatents${N}_envs\${ppo.num_envs}_steps\${ppo.num_steps}_seed\${seed}"
+  done
+done
+
+# --- Stage 10: Finetune base (PPO, mw) -------------------------------------
+echo "===== Stage 10/11: Finetune base (mw) ====="
+for S in "${FINETUNE_BASE_SEEDS[@]}"; do
+  echo "  -- seed=${S}"
+  python3 -m scripts.train_ppo \
+    --config configs/finetune_base.yaml \
+    --override seed=${S} \
+               reward.task=mw \
+               ckpt.init_from=resume \
+               ckpt.path="${BASE_CKPT_DIR}" \
+               ckpt.ckpt_name="best.pt"
+done
+
+# --- Stage 11: Finetune controllable (PPO, mw) -----------------------------
+echo "===== Stage 11/11: Finetune controllable (mw) ====="
+for N in "${NUM_LATENTS_LIST[@]}"; do
+  for S in "${FINETUNE_SEEDS[@]}"; do
+    echo "  -- num_latents=${N}, seed=${S}"
+    python3 -m scripts.train_ppo \
+      --config configs/finetune_controllable.yaml \
+      --override seed=${S} \
+                 reward.task=mw \
+                 ckpt.init_from=resume \
+                 ckpt.path="ckpts/policydistillation_nlatents${N}_vocab${VOCAB_SIZE}_seed${PRETRAIN_SEED}" \
+                 ckpt.ckpt_name="best.pt" \
+                 loader.ckpt_controllable_path="ckpts/pretrain_controllable_vocab${VOCAB_SIZE}_nlatent${N}_seed${PRETRAIN_SEED}" \
+                 loader.ckpt_name="best.pt" \
+                 experiment.wandb_run_name="ppo_\${reward.task}_controllable_nlatents${N}_envs\${ppo.num_envs}_steps\${ppo.num_steps}_seed\${seed}"
+  done
+done
+
+# --- Stage 12: Finetune base (PPO, tpsa) -------------------------------------
+echo "===== Stage 12/13: Finetune base (tpsa) ====="
+for S in "${FINETUNE_BASE_SEEDS[@]}"; do
+  echo "  -- seed=${S}"
+  python3 -m scripts.train_ppo \
+    --config configs/finetune_base.yaml \
+    --override seed=${S} \
+               reward.task=tpsa \
+               ckpt.init_from=resume \
+               ckpt.path="${BASE_CKPT_DIR}" \
+               ckpt.ckpt_name="best.pt"
+done
+
+# --- Stage 13: Finetune controllable (PPO, tpsa) -----------------------------
+echo "===== Stage 13/13: Finetune controllable (tpsa) ====="
+for N in "${NUM_LATENTS_LIST[@]}"; do
+  for S in "${FINETUNE_SEEDS[@]}"; do
+    echo "  -- num_latents=${N}, seed=${S}"
+    python3 -m scripts.train_ppo \
+      --config configs/finetune_controllable.yaml \
+      --override seed=${S} \
+                 reward.task=tpsa \
+                 ckpt.init_from=resume \
+                 ckpt.path="ckpts/policydistillation_nlatents${N}_vocab${VOCAB_SIZE}_seed${PRETRAIN_SEED}" \
+                 ckpt.ckpt_name="best.pt" \
+                 loader.ckpt_controllable_path="ckpts/pretrain_controllable_vocab${VOCAB_SIZE}_nlatent${N}_seed${PRETRAIN_SEED}" \
+                 loader.ckpt_name="best.pt" \
+                 experiment.wandb_run_name="ppo_\${reward.task}_controllable_nlatents${N}_envs\${ppo.num_envs}_steps\${ppo.num_steps}_seed\${seed}"
+  done
+done
+echo "===== All runs complete ====="

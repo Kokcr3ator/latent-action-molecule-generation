@@ -1,7 +1,7 @@
 seed: 42
 eval_only: false
 compile: true
-wandb_log: False
+wandb_log: true
 
 defaults:
   - context

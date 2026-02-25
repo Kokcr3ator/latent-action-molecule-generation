@@ -62,10 +62,10 @@ ppo:
   _target_: interdiff.ppo.HParams
   num_actions: ${tokenizer.vocab_size}
   num_envs: 16
-  num_steps: 256
-  budget: 1000000
-  num_epochs: 4
-  num_minibatches: 8
+  num_steps: 256 # bs = num_envs * num_steps / num_minibatches6
+  budget: 10000000
+  num_epochs: 1
+  num_minibatches: 8 # or 16
   clip_eps: 0.2
   ent_coef: 0.01
   max_episode_length: ${context.seq_len}
@@ -75,10 +75,10 @@ ppo:
   normalise_advantage: true
   clip_value_loss: true
   gae_lambda: 0.95
-  discount: 1.0
+  discount: 1.0 # or 0.99
   weight_decay: 0.01
   anneal_lr: true
-  lambda_kld: 0.1
+  lambda_kld: 0.05  # KL divergence penalty coefficient (0 = disabled)
   log_frequency: 1
   log_to_wandb: ${wandb_log}
   wandb_project_name: ${experiment.wandb_project}

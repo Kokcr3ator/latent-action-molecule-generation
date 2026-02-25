@@ -4,7 +4,8 @@ from typing import List
 import rdkit.Chem.rdMolDescriptors
 import rdkit.Chem.rdmolfiles
 from rdkit.Chem import QED, Crippen, Descriptors
-import sascorer  # type: ignore
+from rdkit.Chem.rdchem import KekulizeException
+import sascorer
 
 
 def get_mol(smiles):
@@ -60,11 +61,12 @@ def qed(smiles: str, threshold: float = 0.7, as_reward: bool = False) -> float:
     mol = get_mol(smiles)
     if mol is None:
         return 0.0
-    if as_reward:
-        out = 1.0 if QED.qed(mol) >= threshold else QED.qed(mol)
-    else:
-        out = QED.qed(mol)
-    return out
+    try:
+        score = QED.qed(mol)
+    except KekulizeException:
+        return 0.0
+
+    return (1.0 if score >= threshold else 0.0) if as_reward else score
 
 
 
