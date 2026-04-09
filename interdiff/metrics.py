@@ -184,33 +184,42 @@ def validity(smiles_list: List[str]) -> float:
     return len(valid_smiles) / len(smiles_list) if len(smiles_list) > 0 else 0.0
 
 
-def uniqueness(smiles_list: List[str]) -> float:
+def uniqueness(smiles_list: List[str], filter_valid: bool = False) -> float:
     """
     Calculate the uniqueness of a list of SMILES strings.
 
     Args:
         smiles_list (List[str]): The list of SMILES strings to evaluate.
+        filter_valid (bool): Whether to filter out invalid SMILES strings.
 
     Returns:
         float: The percentage of unique SMILES strings in the list.
     """
-    smiles_list = filter_valid_smiles(smiles_list)
+    if filter_valid:
+        smiles_list = filter_valid_smiles(smiles_list)
     unique_smiles = set(smiles_list)
     return len(unique_smiles) / len(smiles_list) if len(smiles_list) > 0 else 0.0
 
 
-def novelty(smiles_list: List[str], reference_smiles: List[str]) -> float:
+def novelty(smiles_list: List[str], reference_smiles: List[str], filter_valid: bool = False, filter_unique: bool = False) -> float:
     """
     Calculate the novelty of a list of SMILES strings compared to a reference set.
 
     Args:
         smiles_list (List[str]): The list of SMILES strings to evaluate.
         reference_smiles (List[str]): The reference set of SMILES strings.
+        filter_valid (bool): Whether to filter out invalid SMILES strings.
+        filter_unique (bool): Whether to filter out duplicate SMILES strings.
 
     Returns:
         float: The percentage of novel SMILES strings in the list compared to the reference set.
     """
-    smiles_list = filter_valid_smiles(smiles_list)
+    if filter_valid:
+        smiles_list = filter_valid_smiles(smiles_list)
+
+    if filter_unique:
+        smiles_list = set(smiles_list)
+
     reference_set = set(reference_smiles)
     novel_smiles = set(smiles_list) - reference_set
     return len(novel_smiles) / len(smiles_list) if len(smiles_list) > 0 else 0.0
