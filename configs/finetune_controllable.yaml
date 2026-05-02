@@ -115,3 +115,7 @@ ckpt:
   init_from: scratch
   ckpt_name: smiles_gpt_val_loss_0.9274531602859497.pt
   path: ${experiment.wandb_run_name}
+
+# ===== TRACKING ===== (for W&B tracking, not used inside the pipeline)
+tracking:
+  num_latents: ${ppo.num_actions}
