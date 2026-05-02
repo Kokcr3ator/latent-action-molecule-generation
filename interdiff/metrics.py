@@ -184,7 +184,7 @@ def validity(smiles_list: List[str]) -> float:
     return len(valid_smiles) / len(smiles_list) if len(smiles_list) > 0 else 0.0
 
 
-def uniqueness(smiles_list: List[str], filter_valid: bool = False) -> float:
+def uniqueness(smiles_list: List[str], filter_valid: bool = True) -> float:
     """
     Calculate the uniqueness of a list of SMILES strings.
 
@@ -201,7 +201,7 @@ def uniqueness(smiles_list: List[str], filter_valid: bool = False) -> float:
     return len(unique_smiles) / len(smiles_list) if len(smiles_list) > 0 else 0.0
 
 
-def novelty(smiles_list: List[str], reference_smiles: List[str], filter_valid: bool = False, filter_unique: bool = False) -> float:
+def novelty(smiles_list: List[str], reference_smiles: List[str], filter_valid: bool = True, filter_unique: bool = True) -> float:
     """
     Calculate the novelty of a list of SMILES strings compared to a reference set.
 
@@ -223,6 +223,22 @@ def novelty(smiles_list: List[str], reference_smiles: List[str], filter_valid: b
     reference_set = set(reference_smiles)
     novel_smiles = set(smiles_list) - reference_set
     return len(novel_smiles) / len(smiles_list) if len(smiles_list) > 0 else 0.0
+
+def vun(smiles_list: List[str], reference_smiles: List[str]) -> float:
+    """
+    Calculate the Valid, Unique, Novel (VUN) score for a list of SMILES strings.
+
+    Args:
+        smiles_list (List[str]): The list of SMILES strings to evaluate.
+        reference_smiles (List[str]): The reference set of SMILES strings.
+
+    Returns:
+        float: The VUN score, calculated as the product of validity, uniqueness, and novelty percentages.
+    """
+    valid_pct = validity(smiles_list)
+    unique_pct = uniqueness(smiles_list)
+    novel_pct = novelty(smiles_list, reference_smiles)
+    return valid_pct * unique_pct * novel_pct
 
 
 from typing import Callable, Dict

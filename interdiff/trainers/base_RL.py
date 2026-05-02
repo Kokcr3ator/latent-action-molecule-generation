@@ -17,7 +17,7 @@ from interdiff.io import load_tokenizer
 from interdiff.ppo import PPO
 from interdiff.envs import Env, Timestep
 from interdiff.utils.eval_utils import tokens_to_smiles
-from interdiff.metrics import validity, uniqueness, novelty, property_satisfaction_rate, PROPERTY_FN_MAP
+from interdiff.metrics import validity, uniqueness, novelty, vun, property_satisfaction_rate, PROPERTY_FN_MAP
 
 
 @dataclass
@@ -203,6 +203,7 @@ class RLTrainerBase:
         - Validity (percentage of valid SMILES)
         - Uniqueness (percentage of unique molecules)
         - Novelty (percentage not in training set)
+        - VUN score (product of validity, uniqueness, novelty)
         - Mean episode reward and length
         
         Args:
@@ -211,7 +212,7 @@ class RLTrainerBase:
         
         Returns:
             Dictionary of evaluation metrics including task reward, validity,
-            uniqueness, novelty, mean reward, and episode length.
+            uniqueness, novelty, VUN score, mean reward, and episode length.
         """
         self.ppo_agent.eval()
         
@@ -262,6 +263,7 @@ class RLTrainerBase:
                 "eval/validity": 0.0,
                 "eval/uniqueness": 0.0,
                 "eval/novelty": 0.0,
+                "eval/vun": 0.0,
             }
         
         # Convert generated sequences to SMILES
@@ -284,6 +286,8 @@ class RLTrainerBase:
             novel = novelty(generated_smiles, reference_smiles=self.reference_smiles)
         else:
             novel = 0.0
+
+        vun = vun(generated_smiles, reference_smiles=self.reference_smiles)
         
         # Calculate task-specific metric (same as reward function)
         task = self.env.reward_fn.task
@@ -315,6 +319,7 @@ class RLTrainerBase:
             "eval/validity": valid,
             "eval/uniqueness": unique,
             "eval/novelty": novel,
+            "eval/vun": vun,
         }
     
     def save_checkpoint(self, path: Path | str) -> None:

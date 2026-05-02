@@ -6,7 +6,7 @@ import torch.nn.functional as F
 from .base import TrainerBase
 from interdiff.utils.eval_utils import tokens_to_smiles
 from interdiff.metrics import (all_property_satisfaction_rates,
-                                validity, uniqueness, novelty)
+                                validity, uniqueness, novelty, vun)
 
 class GPTTrainer(TrainerBase):
     """
@@ -18,6 +18,17 @@ class GPTTrainer(TrainerBase):
     
     @torch.no_grad()
     def evaluate(self, val_dataloader: Iterable, train_dataloader: Iterable) -> Dict[str, float]:
+        """
+        Evaluate the model on the validation set and calculate molecular metrics.
+
+        Args:
+            val_dataloader (Iterable): DataLoader for the validation set.
+            train_dataloader (Iterable): DataLoader for the training set (used to build reference set for novelty).
+        
+        Returns:
+            Dict[str, float]: Dictionary containing validation loss, 
+            property satisfaction rates, validity, uniqueness, novelty, and VUN score.
+        """
         self.model.eval()
         val_losses = []
         for i, batch in zip(range(self.eval_iters), val_dataloader):
@@ -36,7 +47,7 @@ class GPTTrainer(TrainerBase):
                         batch_smiles = tokens_to_smiles(train_batch['x'], tokenizer=self.tokenizer)
                         self.reference_smiles.extend(batch_smiles)
                 novel = novelty(generated_smiles, reference_smiles=self.reference_smiles)
-
+                vun = vun(generated_smiles, reference_smiles=self.reference_smiles)
             val_losses.append(float(loss.detach().cpu()))
         self.model.train()
         
@@ -54,7 +65,9 @@ class GPTTrainer(TrainerBase):
                 **pct_metrics,
                 'validity': valid,
                 'uniqueness': unique,
-                'novelty': novel}
+                'novelty': novel,
+                'vun': vun
+                }
     
     def forward_loss(self, batch):
             x = batch['x']
