@@ -22,6 +22,7 @@ from interdiff.config import load_config, instantiate, merge_with_overrides
 from interdiff.utils.torch_utils import seed_all
 from interdiff.trainers.base_RL import RLTrainerBase
 from interdiff.io import load_tokenizer
+from interdiff.utils.model_stats import log_parameter_counts, parameter_counts
 from scripts.tokenise_dataset import run_tokenisation
 from interdiff.data.GPTLoader import NextTokenDataset
 from torch.utils.data import DataLoader
@@ -112,6 +113,21 @@ def main() -> None:
     if logger is not None:
         cfg_dict = OmegaConf.to_container(cfg, resolve=True, throw_on_missing=False)
         logger.log_config(cfg_dict)
+        log_parameter_counts(logger, model, "model")
+        log_parameter_counts(logger, ppo_agent, "ppo_agent")
+
+    model_counts = parameter_counts(model)
+    ppo_agent_counts = parameter_counts(ppo_agent)
+    log.info(
+        "Model parameters: total=%s trainable=%s",
+        f"{int(model_counts['num_parameters']):,}",
+        f"{int(model_counts['num_trainable_parameters']):,}",
+    )
+    log.info(
+        "PPO agent parameters: total=%s trainable=%s",
+        f"{int(ppo_agent_counts['num_parameters']):,}",
+        f"{int(ppo_agent_counts['num_trainable_parameters']):,}",
+    )
 
     # Create RL training config
     rl_train_cfg = instantiate(cfg.rl_train_cfg)
