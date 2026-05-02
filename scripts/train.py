@@ -15,6 +15,7 @@ from omegaconf import OmegaConf
 
 from interdiff.config import load_config, instantiate, merge_with_overrides
 from interdiff.utils.torch_utils import seed_all
+from interdiff.utils.model_stats import log_parameter_counts, parameter_counts
 from scripts.tokenise_dataset import run_tokenisation
 
 
@@ -52,6 +53,14 @@ def main() -> None:
     if logger is not None:
         cfg_dict = OmegaConf.to_container(cfg, resolve=True, throw_on_missing=False)
         logger.log_config(cfg_dict)
+        log_parameter_counts(logger, model, "model")
+
+    model_counts = parameter_counts(model)
+    log.info(
+        "Model parameters: total=%s trainable=%s",
+        f"{int(model_counts['num_parameters']):,}",
+        f"{int(model_counts['num_trainable_parameters']):,}",
+    )
 
     train_cfg.device = 'cuda' if torch.cuda.is_available() else 'cpu'
     trainer = instantiate(cfg.trainer, model=model, scheduler=sched, optimizer=optim, logger=logger, train_cfg=train_cfg)
