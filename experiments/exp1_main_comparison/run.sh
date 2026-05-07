@@ -11,18 +11,13 @@
 #   - All 5 reward tasks: qed, logp, sa, mw, tpsa
 #   - 3 RL seeds; 1 pretraining seed
 #
-# Checkpoints (relative to repo root):
-#   pretrain_base   → ckpts/pretrain_base_vocab500_seed42/best.pt
-#   pretrain_ctrl   → ckpts/pretrain_controllable_vocab500_nlatent128_seed42/best.pt
-#   policy_distill  → ckpts/policydistillation_nlatents128_vocab500_seed42/best.pt
-#   finetune_base   → ckpts/ppo_<task>_envs16_steps256_seed<s>/best.pt
-#   finetune_ctrl   → ckpts/ppo_<task>_controllable_nlatents128_envs16_steps256_seed<s>/best.pt
-#
 # Total runs: 1 + 1 + 1 + (5×3) + (5×3) = 33
 # =============================================================================
 set -euo pipefail
 
-cd "$(dirname "$0")/.."
+ROOT="$(dirname "$0")/../.."
+CFG="$(dirname "$0")"
+cd "${ROOT}"
 
 PRETRAIN_SEED=42
 RL_SEEDS=(42 43 44)
@@ -37,14 +32,14 @@ DISTILL_CKPT_DIR="ckpts/policydistillation_nlatents${NUM_LATENTS}_vocab${VOCAB_S
 # ---------------------------------------------------------------------------
 echo "===== [1/5] Pretrain base GPT (vocab=${VOCAB_SIZE}, seed=${PRETRAIN_SEED}) ====="
 python3 -m scripts.train \
-  --config configs/pretrain_base.yaml \
+  --config "${CFG}/pretrain_base.yaml" \
   --override seed=${PRETRAIN_SEED} \
              tokenizer.vocab_size=${VOCAB_SIZE}
 
 # ---------------------------------------------------------------------------
 echo "===== [2/5] Pretrain ControllableGPT (num_latents=${NUM_LATENTS}, seed=${PRETRAIN_SEED}) ====="
 python3 -m scripts.train \
-  --config configs/pretrain_controllable.yaml \
+  --config "${CFG}/pretrain_controllable.yaml" \
   --override seed=${PRETRAIN_SEED} \
              model.num_latents=${NUM_LATENTS} \
              tokenizer.vocab_size=${VOCAB_SIZE}
@@ -52,7 +47,7 @@ python3 -m scripts.train \
 # ---------------------------------------------------------------------------
 echo "===== [3/5] Policy distillation (num_latents=${NUM_LATENTS}, seed=${PRETRAIN_SEED}) ====="
 python3 -m scripts.train \
-  --config configs/policy_distillation.yaml \
+  --config "${CFG}/policy_distillation.yaml" \
   --override seed=${PRETRAIN_SEED} \
              tokenizer.vocab_size=${VOCAB_SIZE} \
              loader.controllable_gpt_path="${CTRL_CKPT_DIR}/best.pt" \
@@ -64,7 +59,7 @@ for TASK in "${TASKS[@]}"; do
   for S in "${RL_SEEDS[@]}"; do
     echo "  task=${TASK}, seed=${S}"
     python3 -m scripts.train_ppo \
-      --config configs/finetune_base.yaml \
+      --config "${CFG}/finetune_base.yaml" \
       --override seed=${S} \
                  reward.task=${TASK} \
                  tokenizer.vocab_size=${VOCAB_SIZE} \
@@ -80,7 +75,7 @@ for TASK in "${TASKS[@]}"; do
   for S in "${RL_SEEDS[@]}"; do
     echo "  task=${TASK}, seed=${S}"
     python3 -m scripts.train_ppo \
-      --config configs/finetune_controllable.yaml \
+      --config "${CFG}/finetune_controllable.yaml" \
       --override seed=${S} \
                  reward.task=${TASK} \
                  tokenizer.vocab_size=${VOCAB_SIZE} \
