@@ -2,15 +2,9 @@
 # =============================================================================
 # Experiment 2 — Codebook size ablation
 #
-# Research questions addressed:
+# Research questions:
 #   RQ2: Can we compress the action space without hurting RL performance?
 #   RQ3: What is the impact of codebook size on generation quality (VUN)?
-#
-# Design:
-#   - Base GPT: vocab_size ∈ {50, 512, 4096}
-#   - ControllableGPT: num_latents ∈ {25, 128, 256}
-#   - All 5 reward tasks: qed, logp, sa, mw, tpsa
-#   - 3 RL seeds; 1 pretraining seed
 #
 # Total runs: 3 + 3 + 3 + (3×5×3) + (3×5×3) = 99
 # =============================================================================
@@ -20,63 +14,75 @@ ROOT="$(dirname "$0")/../.."
 CFG="$(dirname "$0")/config.yaml"
 cd "${ROOT}"
 
-PRETRAIN_SEED=42
-RL_SEEDS=(42 43 44)
-TASKS=(qed logp sa mw tpsa)
+# Read experiment config
+_cfg() { python3 -c "
+import yaml, sys
+c = yaml.safe_load(open('${CFG}'))
+v = c['$1']
+print(' '.join(map(str, v)) if isinstance(v, list) else v)
+"; }
 
-BASE_VOCAB_SIZES=(50 512 4096)
-CTRL_NUM_LATENTS=(25 128 256)
-CTRL_VOCAB_SIZE=500   # ControllableGPT always uses the standard vocab
+PRETRAIN_SEED=$(_cfg pretrain_seed)
+read -ra RL_SEEDS        <<< "$(_cfg rl_seeds)"
+read -ra TASKS           <<< "$(_cfg tasks)"
+read -ra VOCAB_SIZES     <<< "$(_cfg vocab_sizes)"
+read -ra NUM_LATENTS_LIST <<< "$(_cfg num_latents_list)"
+CTRL_VOCAB_SIZE=$(_cfg ctrl_vocab_size)
+WANDB_GROUP=$(_cfg wandb_group)
 
 # ---------------------------------------------------------------------------
 echo "===== [1/5] Pretrain base GPT — all vocab sizes ====="
-for V in "${BASE_VOCAB_SIZES[@]}"; do
+for V in "${VOCAB_SIZES[@]}"; do
   echo "  vocab_size=${V}"
   python3 -m scripts.train \
-    --config "${CFG}" --stage pretrain_base \
+    --config configs/pretrain_base.yaml \
     --override seed=${PRETRAIN_SEED} \
-               tokenizer.vocab_size=${V}
+               tokenizer.vocab_size=${V} \
+               log.group=${WANDB_GROUP}
 done
 
 # ---------------------------------------------------------------------------
 echo "===== [2/5] Pretrain ControllableGPT — all codebook sizes ====="
-for N in "${CTRL_NUM_LATENTS[@]}"; do
+for N in "${NUM_LATENTS_LIST[@]}"; do
   echo "  num_latents=${N}"
   python3 -m scripts.train \
-    --config "${CFG}" --stage pretrain_controllable \
+    --config configs/pretrain_controllable.yaml \
     --override seed=${PRETRAIN_SEED} \
                model.num_latents=${N} \
-               tokenizer.vocab_size=${CTRL_VOCAB_SIZE}
+               tokenizer.vocab_size=${CTRL_VOCAB_SIZE} \
+               log.group=${WANDB_GROUP}
 done
 
 # ---------------------------------------------------------------------------
 echo "===== [3/5] Policy distillation — all codebook sizes ====="
-for N in "${CTRL_NUM_LATENTS[@]}"; do
+for N in "${NUM_LATENTS_LIST[@]}"; do
   echo "  num_latents=${N}"
   CTRL_CKPT="ckpts/pretrain_controllable_vocab${CTRL_VOCAB_SIZE}_nlatent${N}_seed${PRETRAIN_SEED}"
   python3 -m scripts.train \
-    --config "${CFG}" --stage policy_distillation \
+    --config configs/policy_distillation.yaml \
     --override seed=${PRETRAIN_SEED} \
                tokenizer.vocab_size=${CTRL_VOCAB_SIZE} \
                loader.controllable_gpt_path="${CTRL_CKPT}/best.pt" \
-               model.lm_head_out_size=${N}
+               model.lm_head_out_size=${N} \
+               log.group=${WANDB_GROUP}
 done
 
 # ---------------------------------------------------------------------------
 echo "===== [4/5] PPO finetune base GPT — all vocab sizes, tasks, and seeds ====="
-for V in "${BASE_VOCAB_SIZES[@]}"; do
+for V in "${VOCAB_SIZES[@]}"; do
   BASE_CKPT="ckpts/pretrain_base_vocab${V}_seed${PRETRAIN_SEED}"
   for TASK in "${TASKS[@]}"; do
     for S in "${RL_SEEDS[@]}"; do
       echo "  vocab=${V}, task=${TASK}, seed=${S}"
       python3 -m scripts.train_ppo \
-        --config "${CFG}" --stage finetune_base \
+        --config configs/finetune_base.yaml \
         --override seed=${S} \
                    reward.task=${TASK} \
                    tokenizer.vocab_size=${V} \
                    ckpt.init_from=resume \
                    ckpt.path="${BASE_CKPT}" \
                    ckpt.ckpt_name="best.pt" \
+                   log.group=${WANDB_GROUP} \
                    experiment.wandb_run_name="ppo_${TASK}_base_vocab${V}_envs\${ppo.num_envs}_steps\${ppo.num_steps}_seed${S}"
     done
   done
@@ -84,14 +90,14 @@ done
 
 # ---------------------------------------------------------------------------
 echo "===== [5/5] PPO finetune ControllableGPT — all codebook sizes, tasks, and seeds ====="
-for N in "${CTRL_NUM_LATENTS[@]}"; do
+for N in "${NUM_LATENTS_LIST[@]}"; do
   CTRL_CKPT="ckpts/pretrain_controllable_vocab${CTRL_VOCAB_SIZE}_nlatent${N}_seed${PRETRAIN_SEED}"
   DISTILL_CKPT="ckpts/policydistillation_nlatents${N}_vocab${CTRL_VOCAB_SIZE}_seed${PRETRAIN_SEED}"
   for TASK in "${TASKS[@]}"; do
     for S in "${RL_SEEDS[@]}"; do
       echo "  num_latents=${N}, task=${TASK}, seed=${S}"
       python3 -m scripts.train_ppo \
-        --config "${CFG}" --stage finetune_controllable \
+        --config configs/finetune_controllable.yaml \
         --override seed=${S} \
                    reward.task=${TASK} \
                    tokenizer.vocab_size=${CTRL_VOCAB_SIZE} \
@@ -100,6 +106,7 @@ for N in "${CTRL_NUM_LATENTS[@]}"; do
                    ckpt.ckpt_name="best.pt" \
                    loader.ckpt_controllable_path="${CTRL_CKPT}" \
                    loader.ckpt_name="best.pt" \
+                   log.group=${WANDB_GROUP} \
                    experiment.wandb_run_name="ppo_${TASK}_controllable_nlatents${N}_envs\${ppo.num_envs}_steps\${ppo.num_steps}_seed${S}"
     done
   done
