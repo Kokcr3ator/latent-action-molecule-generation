@@ -169,7 +169,12 @@ def main() -> None:
     
     # Run training with train_dataloader for novelty calculation
     trainer.fit(train_dataloader=train_dataloader)
-    
+
+    # Write sentinel so experiment scripts can distinguish a complete run from a killed one.
+    sentinel = os.path.join(rl_train_cfg.ckpt_path, "done")
+    open(sentinel, "w").close()
+    log.info("Training complete. Sentinel written to %s", sentinel)
+
     log.info("PPO finetuning completed!")
 
 

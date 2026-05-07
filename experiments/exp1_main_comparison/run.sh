@@ -24,8 +24,8 @@ print(' '.join(map(str, v)) if isinstance(v, list) else v)
 "; }
 
 _done() {
-  [ -f "$1/best.pt" ] || return 1
-  echo "    skipping — $1/best.pt already exists"
+  [ -f "$1/done" ] || return 1
+  echo "    skipping — $1/done sentinel exists"
 }
 
 DATA_DIR=$(_cfg data_dir)

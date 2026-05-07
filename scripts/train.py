@@ -8,6 +8,7 @@ Usage:
 """
 import argparse
 import logging
+import os
 
 import torch
 
@@ -65,6 +66,11 @@ def main() -> None:
     val_dataloader = loaders.val_loader
 
     trainer.fit(train_dataloader, val_dataloader)
+
+    # Write sentinel so experiment scripts can distinguish a complete run from a killed one.
+    sentinel = os.path.join("ckpts", train_cfg.ckpt_path, "done")
+    open(sentinel, "w").close()
+    log.info("Training complete. Sentinel written to %s", sentinel)
 
     if logger:
         logger.finalize()
