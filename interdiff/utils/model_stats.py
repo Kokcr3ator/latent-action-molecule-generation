@@ -30,18 +30,11 @@ def parameter_counts(model: nn.Module) -> Dict[str, int | float]:
     return counts
 
 
-def namespaced_parameter_counts(model: nn.Module, namespace: str) -> Dict[str, int | float]:
-    """Return parameter counts with wandb-friendly namespaced keys."""
-    return {
-        f"{namespace}/{key}": value
-        for key, value in parameter_counts(model).items()
-    }
-
-
 def log_parameter_counts(logger: Any, model: nn.Module, namespace: str) -> Dict[str, int | float]:
-    """Log parameter counts to the run config (static metadata, not a chart metric)."""
-    counts = namespaced_parameter_counts(model, namespace)
-    logger.log_config(counts)
+    """Log total parameter count (millions) to the run config as a single number."""
+    counts = parameter_counts(model)
+    total_M = counts["num_parameters_millions"]
+    logger.log_config({f"{namespace}/parameters_M": round(total_M, 3)})
     return counts
 
 
@@ -78,5 +71,3 @@ def log_run_setup(
         logger.log_config(run_meta)
     for namespace, model in models.items():
         log_parameter_counts(logger, model, namespace)
-        if hasattr(model, "num_latents"):
-            logger.log_config({f"{namespace}/num_latents": model.num_latents})
