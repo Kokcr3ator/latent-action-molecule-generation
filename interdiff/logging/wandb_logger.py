@@ -9,8 +9,7 @@ class WandbLogger(Logger):
         wandb.init(project=project, name=name, group=group, entity=entity)
 
     def log(self, metrics: dict):
-        step = metrics.get("step")
-        wandb.log(metrics, step=step)
+        wandb.log(metrics)
 
     def log_config(self, config: dict):
         wandb.config.update(config)
