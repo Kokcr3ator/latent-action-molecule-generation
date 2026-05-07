@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
+from omegaconf import OmegaConf, DictConfig
 from torch import nn
 
 
@@ -43,3 +44,25 @@ def log_parameter_counts(logger: Any, model: nn.Module, namespace: str) -> Dict[
     logger.log_config(counts)
     logger.log({**counts, "step": 0})
     return counts
+
+
+def log_run_setup(logger: Any, cfg: DictConfig, **models: nn.Module) -> None:
+    """Log everything needed to reproduce a run: config, parameter counts, and num_latents.
+
+    Call once after the logger and all models are instantiated. Logs nothing when
+    logger is None so callers do not need to guard the call themselves.
+
+    Args:
+        logger: W&B (or other) logger instance, or None.
+        cfg: Resolved OmegaConf config for the run.
+        **models: Keyword-named models to log, e.g. model=model, ppo_agent=ppo_agent.
+                  Each is logged under its keyword name as the namespace.
+    """
+    if logger is None:
+        return
+    cfg_dict = OmegaConf.to_container(cfg, resolve=True, throw_on_missing=False)
+    logger.log_config(cfg_dict)
+    for namespace, model in models.items():
+        log_parameter_counts(logger, model, namespace)
+        if hasattr(model, "num_latents"):
+            logger.log_config({f"{namespace}/num_latents": model.num_latents})

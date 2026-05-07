@@ -16,13 +16,11 @@ from copy import deepcopy
 
 import torch
 
-from omegaconf import OmegaConf
-
 from interdiff.config import load_config, instantiate, merge_with_overrides
 from interdiff.utils.torch_utils import seed_all
 from interdiff.trainers.base_RL import RLTrainerBase
 from interdiff.io import load_tokenizer
-from interdiff.utils.model_stats import log_parameter_counts, parameter_counts
+from interdiff.utils.model_stats import log_run_setup, parameter_counts
 from scripts.tokenise_dataset import run_tokenisation
 from interdiff.data.GPTLoader import NextTokenDataset
 from torch.utils.data import DataLoader
@@ -110,13 +108,7 @@ def main() -> None:
     
     # Setup logger
     logger = instantiate(cfg.log) if cfg.wandb_log else None
-    if logger is not None:
-        cfg_dict = OmegaConf.to_container(cfg, resolve=True, throw_on_missing=False)
-        logger.log_config(cfg_dict)
-        log_parameter_counts(logger, model, "model")
-        log_parameter_counts(logger, ppo_agent, "ppo_agent")
-        if hasattr(model, 'num_latents'):
-            logger.log_config({"model/num_latents": model.num_latents})
+    log_run_setup(logger, cfg, model=model, ppo_agent=ppo_agent)
 
     model_counts = parameter_counts(model)
     ppo_agent_counts = parameter_counts(ppo_agent)

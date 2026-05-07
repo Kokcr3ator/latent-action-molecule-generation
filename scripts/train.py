@@ -11,11 +11,9 @@ import logging
 
 import torch
 
-from omegaconf import OmegaConf
-
 from interdiff.config import load_config, instantiate, merge_with_overrides
 from interdiff.utils.torch_utils import seed_all
-from interdiff.utils.model_stats import log_parameter_counts, parameter_counts
+from interdiff.utils.model_stats import log_run_setup, parameter_counts
 from scripts.tokenise_dataset import run_tokenisation
 
 
@@ -50,12 +48,7 @@ def main() -> None:
     optim = instantiate(cfg.optimizer, model=model)
     sched = instantiate(cfg.scheduler, optimizer=optim)
     logger = instantiate(cfg.log) if bool(cfg.wandb_log) else None
-    if logger is not None:
-        cfg_dict = OmegaConf.to_container(cfg, resolve=True, throw_on_missing=False)
-        logger.log_config(cfg_dict)
-        log_parameter_counts(logger, model, "model")
-        if hasattr(model, 'num_latents'):
-            logger.log_config({"model/num_latents": model.num_latents})
+    log_run_setup(logger, cfg, model=model)
 
     model_counts = parameter_counts(model)
     log.info(
