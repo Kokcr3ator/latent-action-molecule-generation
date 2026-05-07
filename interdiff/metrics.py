@@ -184,61 +184,60 @@ def validity(smiles_list: List[str]) -> float:
     return len(valid_smiles) / len(smiles_list) if len(smiles_list) > 0 else 0.0
 
 
-def uniqueness(smiles_list: List[str], filter_valid: bool = True) -> float:
+def uniqueness(smiles_list: List[str]) -> float:
     """
-    Calculate the uniqueness of a list of SMILES strings.
+    Fraction of distinct molecules in the list (including invalid ones).
 
     Args:
-        smiles_list (List[str]): The list of SMILES strings to evaluate.
-        filter_valid (bool): Whether to filter out invalid SMILES strings.
+        smiles_list: The list of SMILES strings to evaluate.
 
     Returns:
-        float: The percentage of unique SMILES strings in the list.
+        |set(smiles_list)| / |smiles_list|
     """
-    if filter_valid:
-        smiles_list = filter_valid_smiles(smiles_list)
-    unique_smiles = set(smiles_list)
-    return len(unique_smiles) / len(smiles_list) if len(smiles_list) > 0 else 0.0
+    if not smiles_list:
+        return 0.0
+    return len(set(smiles_list)) / len(smiles_list)
 
 
-def novelty(smiles_list: List[str], reference_smiles: List[str], filter_valid: bool = True, filter_unique: bool = True) -> float:
+def novelty(smiles_list: List[str], reference_smiles: List[str]) -> float:
     """
-    Calculate the novelty of a list of SMILES strings compared to a reference set.
+    Fraction of molecules in the list that are not in the reference set.
+
+    Includes invalid and duplicate molecules in both numerator and denominator;
+    each occurrence in the list is counted independently.
 
     Args:
-        smiles_list (List[str]): The list of SMILES strings to evaluate.
-        reference_smiles (List[str]): The reference set of SMILES strings.
-        filter_valid (bool): Whether to filter out invalid SMILES strings.
-        filter_unique (bool): Whether to filter out duplicate SMILES strings.
+        smiles_list: The list of SMILES strings to evaluate.
+        reference_smiles: The reference (training) set of SMILES strings.
 
     Returns:
-        float: The percentage of novel SMILES strings in the list compared to the reference set.
+        |{s in smiles_list : s not in reference}| / |smiles_list|
     """
-    if filter_valid:
-        smiles_list = filter_valid_smiles(smiles_list)
-
-    if filter_unique:
-        smiles_list = set(smiles_list)
-
+    if not smiles_list:
+        return 0.0
     reference_set = set(reference_smiles)
-    novel_smiles = set(smiles_list) - reference_set
-    return len(novel_smiles) / len(smiles_list) if len(smiles_list) > 0 else 0.0
+    return sum(1 for s in smiles_list if s not in reference_set) / len(smiles_list)
+
 
 def vun(smiles_list: List[str], reference_smiles: List[str]) -> float:
     """
-    Calculate the Valid, Unique, Novel (VUN) score for a list of SMILES strings.
+    Fraction of generated molecules that are valid, unique, and novel.
+
+    Counts each distinct valid molecule that does not appear in the reference
+    set exactly once, regardless of how many times it appears in smiles_list.
 
     Args:
-        smiles_list (List[str]): The list of SMILES strings to evaluate.
-        reference_smiles (List[str]): The reference set of SMILES strings.
+        smiles_list: The list of SMILES strings to evaluate.
+        reference_smiles: The reference (training) set of SMILES strings.
 
     Returns:
-        float: The VUN score, calculated as the product of validity, uniqueness, and novelty percentages.
+        |{distinct valid s in smiles_list : s not in reference}| / |smiles_list|
     """
-    valid_pct = validity(smiles_list)
-    unique_pct = uniqueness(smiles_list)
-    novel_pct = novelty(smiles_list, reference_smiles)
-    return valid_pct * unique_pct * novel_pct
+    if not smiles_list:
+        return 0.0
+    reference_set = set(reference_smiles)
+    valid_unique_novel = {s for s in smiles_list if is_valid_smiles(s) and s not in reference_set}
+    return len(valid_unique_novel) / len(smiles_list)
 
 
 from typing import Callable, Dict

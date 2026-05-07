@@ -287,7 +287,7 @@ class RLTrainerBase:
         else:
             novel = 0.0
 
-        vun = vun(generated_smiles, reference_smiles=self.reference_smiles)
+        vun_score = vun(generated_smiles, reference_smiles=self.reference_smiles) if self.reference_smiles else 0.0
         
         # Calculate task-specific metric (same as reward function)
         task = self.env.reward_fn.task
@@ -319,7 +319,7 @@ class RLTrainerBase:
             "eval/validity": valid,
             "eval/uniqueness": unique,
             "eval/novelty": novel,
-            "eval/vun": vun,
+            "eval/vun": vun_score,
         }
     
     def save_checkpoint(self, path: Path | str) -> None:

@@ -47,7 +47,7 @@ class GPTTrainer(TrainerBase):
                         batch_smiles = tokens_to_smiles(train_batch['x'], tokenizer=self.tokenizer)
                         self.reference_smiles.extend(batch_smiles)
                 novel = novelty(generated_smiles, reference_smiles=self.reference_smiles)
-                vun = vun(generated_smiles, reference_smiles=self.reference_smiles)
+                vun_score = vun(generated_smiles, reference_smiles=self.reference_smiles)
             val_losses.append(float(loss.detach().cpu()))
         self.model.train()
         
@@ -66,7 +66,7 @@ class GPTTrainer(TrainerBase):
                 'validity': valid,
                 'uniqueness': unique,
                 'novelty': novel,
-                'vun': vun
+                'vun': vun_score
                 }
     
     def forward_loss(self, batch):
