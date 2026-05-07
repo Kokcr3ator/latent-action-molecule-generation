@@ -62,10 +62,10 @@ optim:
 # ===== PPO =====
 ppo:
   _target_: interdiff.ppo.HParams
-  num_actions: 4000
+  num_actions: ${tokenizer.vocab_size}
   num_envs: 16
   num_steps: 256
-  budget: 10000000
+  budget: 250000000
   num_epochs: 1
   num_minibatches: 8
   clip_eps: 0.2
