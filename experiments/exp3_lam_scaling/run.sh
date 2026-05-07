@@ -14,8 +14,8 @@
 # =============================================================================
 set -euo pipefail
 
-ROOT="$(dirname "$0")/../.."
-CFG="$(dirname "$0")/config.yaml"
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+CFG="$(cd "$(dirname "$0")" && pwd)/config.yaml"
 cd "${ROOT}"
 
 _cfg() { python3 -c "
