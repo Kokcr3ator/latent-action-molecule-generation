@@ -17,7 +17,7 @@
 set -euo pipefail
 
 ROOT="$(dirname "$0")/../.."
-CFG="$(dirname "$0")"
+CFG="$(dirname "$0")/config.yaml"
 cd "${ROOT}"
 
 PRETRAIN_SEED=42
@@ -33,7 +33,7 @@ echo "===== [1/5] Pretrain base GPT — all vocab sizes ====="
 for V in "${BASE_VOCAB_SIZES[@]}"; do
   echo "  vocab_size=${V}"
   python3 -m scripts.train \
-    --config "${CFG}/pretrain_base.yaml" \
+    --config "${CFG}" --stage pretrain_base \
     --override seed=${PRETRAIN_SEED} \
                tokenizer.vocab_size=${V}
 done
@@ -43,7 +43,7 @@ echo "===== [2/5] Pretrain ControllableGPT — all codebook sizes ====="
 for N in "${CTRL_NUM_LATENTS[@]}"; do
   echo "  num_latents=${N}"
   python3 -m scripts.train \
-    --config "${CFG}/pretrain_controllable.yaml" \
+    --config "${CFG}" --stage pretrain_controllable \
     --override seed=${PRETRAIN_SEED} \
                model.num_latents=${N} \
                tokenizer.vocab_size=${CTRL_VOCAB_SIZE}
@@ -55,7 +55,7 @@ for N in "${CTRL_NUM_LATENTS[@]}"; do
   echo "  num_latents=${N}"
   CTRL_CKPT="ckpts/pretrain_controllable_vocab${CTRL_VOCAB_SIZE}_nlatent${N}_seed${PRETRAIN_SEED}"
   python3 -m scripts.train \
-    --config "${CFG}/policy_distillation.yaml" \
+    --config "${CFG}" --stage policy_distillation \
     --override seed=${PRETRAIN_SEED} \
                tokenizer.vocab_size=${CTRL_VOCAB_SIZE} \
                loader.controllable_gpt_path="${CTRL_CKPT}/best.pt" \
@@ -70,7 +70,7 @@ for V in "${BASE_VOCAB_SIZES[@]}"; do
     for S in "${RL_SEEDS[@]}"; do
       echo "  vocab=${V}, task=${TASK}, seed=${S}"
       python3 -m scripts.train_ppo \
-        --config "${CFG}/finetune_base.yaml" \
+        --config "${CFG}" --stage finetune_base \
         --override seed=${S} \
                    reward.task=${TASK} \
                    tokenizer.vocab_size=${V} \
@@ -91,7 +91,7 @@ for N in "${CTRL_NUM_LATENTS[@]}"; do
     for S in "${RL_SEEDS[@]}"; do
       echo "  num_latents=${N}, task=${TASK}, seed=${S}"
       python3 -m scripts.train_ppo \
-        --config "${CFG}/finetune_controllable.yaml" \
+        --config "${CFG}" --stage finetune_controllable \
         --override seed=${S} \
                    reward.task=${TASK} \
                    tokenizer.vocab_size=${CTRL_VOCAB_SIZE} \

@@ -16,7 +16,7 @@
 set -euo pipefail
 
 ROOT="$(dirname "$0")/../.."
-CFG="$(dirname "$0")"
+CFG="$(dirname "$0")/config.yaml"
 cd "${ROOT}"
 
 PRETRAIN_SEED=42
@@ -32,14 +32,14 @@ DISTILL_CKPT_DIR="ckpts/policydistillation_nlatents${NUM_LATENTS}_vocab${VOCAB_S
 # ---------------------------------------------------------------------------
 echo "===== [1/5] Pretrain base GPT (vocab=${VOCAB_SIZE}, seed=${PRETRAIN_SEED}) ====="
 python3 -m scripts.train \
-  --config "${CFG}/pretrain_base.yaml" \
+  --config "${CFG}" --stage pretrain_base \
   --override seed=${PRETRAIN_SEED} \
              tokenizer.vocab_size=${VOCAB_SIZE}
 
 # ---------------------------------------------------------------------------
 echo "===== [2/5] Pretrain ControllableGPT (num_latents=${NUM_LATENTS}, seed=${PRETRAIN_SEED}) ====="
 python3 -m scripts.train \
-  --config "${CFG}/pretrain_controllable.yaml" \
+  --config "${CFG}" --stage pretrain_controllable \
   --override seed=${PRETRAIN_SEED} \
              model.num_latents=${NUM_LATENTS} \
              tokenizer.vocab_size=${VOCAB_SIZE}
@@ -47,7 +47,7 @@ python3 -m scripts.train \
 # ---------------------------------------------------------------------------
 echo "===== [3/5] Policy distillation (num_latents=${NUM_LATENTS}, seed=${PRETRAIN_SEED}) ====="
 python3 -m scripts.train \
-  --config "${CFG}/policy_distillation.yaml" \
+  --config "${CFG}" --stage policy_distillation \
   --override seed=${PRETRAIN_SEED} \
              tokenizer.vocab_size=${VOCAB_SIZE} \
              loader.controllable_gpt_path="${CTRL_CKPT_DIR}/best.pt" \
@@ -59,7 +59,7 @@ for TASK in "${TASKS[@]}"; do
   for S in "${RL_SEEDS[@]}"; do
     echo "  task=${TASK}, seed=${S}"
     python3 -m scripts.train_ppo \
-      --config "${CFG}/finetune_base.yaml" \
+      --config "${CFG}" --stage finetune_base \
       --override seed=${S} \
                  reward.task=${TASK} \
                  tokenizer.vocab_size=${VOCAB_SIZE} \
@@ -75,7 +75,7 @@ for TASK in "${TASKS[@]}"; do
   for S in "${RL_SEEDS[@]}"; do
     echo "  task=${TASK}, seed=${S}"
     python3 -m scripts.train_ppo \
-      --config "${CFG}/finetune_controllable.yaml" \
+      --config "${CFG}" --stage finetune_controllable \
       --override seed=${S} \
                  reward.task=${TASK} \
                  tokenizer.vocab_size=${VOCAB_SIZE} \

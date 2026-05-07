@@ -36,13 +36,27 @@ def _resolve_target(target: str) -> Any:
 # Public API
 # ---------------------------------------------------------------------------
 
-def load_config(path: str) -> DictConfig:
+def load_config(path: str, stage: str | None = None) -> DictConfig:
     """Load a YAML file and return a fully-resolved OmegaConf ``DictConfig``.
+
+    If *stage* is given the file is expected to have a ``defaults`` top-level
+    key containing shared settings and one key per pipeline stage.  The
+    returned config is ``OmegaConf.merge(defaults, cfg[stage])``, so stage
+    sections only need to declare what differs from the shared defaults.
 
     OmegaConf interpolations (``${...}``) are resolved lazily on access.
     """
     cfg = OmegaConf.load(path)
     assert isinstance(cfg, DictConfig)
+    if stage is not None:
+        defaults = cfg.get("defaults", OmegaConf.create({}))
+        stage_cfg = cfg.get(stage)
+        if stage_cfg is None:
+            available = [k for k in cfg if k != "defaults"]
+            raise KeyError(
+                f"Stage '{stage}' not found in '{path}'. Available: {available}"
+            )
+        cfg = OmegaConf.merge(defaults, stage_cfg)
     return cfg
 
 

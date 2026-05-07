@@ -30,6 +30,8 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="PPO finetuning from a YAML config.")
     parser.add_argument("--config", type=str, required=True,
                         help="Path to experiment YAML config file.")
+    parser.add_argument("--stage", type=str, default=None,
+                        help="Stage key to load from a multi-stage config (e.g. finetune_base).")
     parser.add_argument("--override", nargs="*", default=[],
                         help="Dotlist overrides, e.g. reward.task=logp ppo.num_envs=64")
     return parser.parse_args()
@@ -40,7 +42,7 @@ def main() -> None:
     args = parse_args()
 
     # Load and optionally override config
-    cfg = load_config(args.config)
+    cfg = load_config(args.config, stage=args.stage)
     cfg = merge_with_overrides(cfg, args.override)
     
     logging.basicConfig(
