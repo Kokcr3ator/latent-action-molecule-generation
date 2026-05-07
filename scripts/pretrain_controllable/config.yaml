@@ -9,6 +9,7 @@ experiment:
   wandb_run_name: pretrain_controllable_vocab${tokenizer.vocab_size}_nlatent${model.num_latents}_seed${seed}
 
 seed: 42
+stage: pretrain-cgpt
 eval_only: false
 compile: true
 wandb_log: true

@@ -9,6 +9,7 @@ experiment:
   wandb_run_name: pretrain_base_vocab${tokenizer.vocab_size}_seed${seed}
 
 seed: 42
+stage: pretrain-gpt
 eval_only: false
 compile: true
 wandb_log: true

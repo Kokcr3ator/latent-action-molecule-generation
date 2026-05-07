@@ -9,6 +9,7 @@ experiment:
   wandb_run_name: policydistillation_nlatents${model.lm_head_out_size}_vocab${tokenizer.vocab_size}_seed${seed}
 
 seed: 42
+stage: policy-distill
 eval_only: false
 compile: true
 wandb_log: true

@@ -9,6 +9,7 @@ experiment:
   wandb_run_name: ppo_${reward.task}_envs${ppo.num_envs}_steps${ppo.num_steps}_seed${seed}
 
 seed: 42
+stage: cgpt-finetune
 wandb_log: true
 from_scratch: false # whether to initialize from a baseGPT which went through policy distillation or not
 
