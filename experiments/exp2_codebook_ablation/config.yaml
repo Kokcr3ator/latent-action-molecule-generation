@@ -13,7 +13,7 @@ num_latents_list: [8, 32, 128, 512, 1024, 2048] # ControllableGPT codebook sizes
 ctrl_vocab_size: 500             # ControllableGPT always uses the standard vocab
 
 # --- Training ----------------------------------------------------------------
-seeds: [42, 43, 44]
+seeds: [0, 1, 2, 3, 4]
 tasks: [qed, logp, sa, mw, tpsa]
 controllable_iters: 20000   # max_iters for ControllableGPT pretraining
 distillation_iters: 100000  # max_iters for policy distillation

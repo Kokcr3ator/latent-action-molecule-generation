@@ -23,6 +23,11 @@ v = c['$1']
 print(' '.join(map(str, v)) if isinstance(v, list) else v)
 "; }
 
+_done() {
+  [ -f "$1/best.pt" ] || return 1
+  echo "    skipping — $1/best.pt already exists"
+}
+
 DATA_DIR=$(_cfg data_dir)
 CKPT_ROOT=$(_cfg ckpt_root)
 VOCAB_SIZE=$(_cfg vocab_size)
@@ -44,72 +49,84 @@ for S in "${SEEDS[@]}"; do
 
   # -------------------------------------------------------------------------
   echo "  [1/5] Pretrain base GPT"
-  python3 -m scripts.train \
-    --config scripts/pretrain_base/config.yaml \
-    --override seed=${S} \
-               data.smiles=${DATA_DIR} \
-               tokenizer.vocab_size=${VOCAB_SIZE} \
-               training.max_iters=${PRETRAIN_ITERS} \
-               log.group=${WANDB_GROUP}
+  if ! _done "${BASE_CKPT}"; then
+    python3 -m scripts.train \
+      --config scripts/pretrain_base/config.yaml \
+      --override seed=${S} \
+                 data.smiles=${DATA_DIR} \
+                 tokenizer.vocab_size=${VOCAB_SIZE} \
+                 training.max_iters=${PRETRAIN_ITERS} \
+                 log.group=${WANDB_GROUP}
+  fi
 
   # -------------------------------------------------------------------------
   echo "  [2/5] Pretrain ControllableGPT"
-  python3 -m scripts.train \
-    --config scripts/pretrain_controllable/config.yaml \
-    --override seed=${S} \
-               data.smiles=${DATA_DIR} \
-               model.num_latents=${NUM_LATENTS} \
-               tokenizer.vocab_size=${VOCAB_SIZE} \
-               training.max_iters=${CONTROLLABLE_ITERS} \
-               log.group=${WANDB_GROUP}
+  if ! _done "${CTRL_CKPT}"; then
+    python3 -m scripts.train \
+      --config scripts/pretrain_controllable/config.yaml \
+      --override seed=${S} \
+                 data.smiles=${DATA_DIR} \
+                 model.num_latents=${NUM_LATENTS} \
+                 tokenizer.vocab_size=${VOCAB_SIZE} \
+                 training.max_iters=${CONTROLLABLE_ITERS} \
+                 log.group=${WANDB_GROUP}
+  fi
 
   # -------------------------------------------------------------------------
   echo "  [3/5] Policy distillation"
-  python3 -m scripts.train \
-    --config scripts/policy_distillation/config.yaml \
-    --override seed=${S} \
-               data.smiles=${DATA_DIR} \
-               tokenizer.vocab_size=${VOCAB_SIZE} \
-               loader.controllable_gpt_path="${CTRL_CKPT}/best.pt" \
-               model.lm_head_out_size=${NUM_LATENTS} \
-               training.max_iters=${DISTILLATION_ITERS} \
-               log.group=${WANDB_GROUP}
+  if ! _done "${DISTILL_CKPT}"; then
+    python3 -m scripts.train \
+      --config scripts/policy_distillation/config.yaml \
+      --override seed=${S} \
+                 data.smiles=${DATA_DIR} \
+                 tokenizer.vocab_size=${VOCAB_SIZE} \
+                 loader.controllable_gpt_path="${CTRL_CKPT}/best.pt" \
+                 model.lm_head_out_size=${NUM_LATENTS} \
+                 training.max_iters=${DISTILLATION_ITERS} \
+                 log.group=${WANDB_GROUP}
+  fi
 
   # -------------------------------------------------------------------------
   echo "  [4/5] PPO finetune base GPT — all tasks"
   for TASK in "${TASKS[@]}"; do
     echo "    task=${TASK}"
-    python3 -m scripts.train_ppo \
-      --config scripts/finetune_base/config.yaml \
-      --override seed=${S} \
-                 data.smiles=${DATA_DIR} \
-                 reward.task=${TASK} \
-                 tokenizer.vocab_size=${VOCAB_SIZE} \
-                 ckpt.init_from=resume \
-                 ckpt.path="${BASE_CKPT}" \
-                 ckpt.ckpt_name="best.pt" \
-                 ppo.budget=${RL_BUDGET} \
-                 log.group=${WANDB_GROUP}
+    BASE_PPO_CKPT="${CKPT_ROOT}/ppo_${TASK}_envs16_steps256_seed${S}"
+    if ! _done "${BASE_PPO_CKPT}"; then
+      python3 -m scripts.train_ppo \
+        --config scripts/finetune_base/config.yaml \
+        --override seed=${S} \
+                   data.smiles=${DATA_DIR} \
+                   reward.task=${TASK} \
+                   tokenizer.vocab_size=${VOCAB_SIZE} \
+                   ckpt.init_from=resume \
+                   ckpt.path="${BASE_CKPT}" \
+                   ckpt.ckpt_name="best.pt" \
+                   ppo.budget=${RL_BUDGET} \
+                   log.group=${WANDB_GROUP}
+    fi
   done
 
   # -------------------------------------------------------------------------
   echo "  [5/5] PPO finetune ControllableGPT — all tasks"
   for TASK in "${TASKS[@]}"; do
     echo "    task=${TASK}"
-    python3 -m scripts.train_ppo \
-      --config scripts/finetune_controllable/config.yaml \
-      --override seed=${S} \
-                 data.smiles=${DATA_DIR} \
-                 reward.task=${TASK} \
-                 tokenizer.vocab_size=${VOCAB_SIZE} \
-                 ckpt.init_from=resume \
-                 ckpt.path="${DISTILL_CKPT}" \
-                 ckpt.ckpt_name="best.pt" \
-                 loader.ckpt_controllable_path="${CTRL_CKPT}" \
-                 loader.ckpt_name="best.pt" \
-                 ppo.budget=${RL_BUDGET} \
-                 log.group=${WANDB_GROUP} \
-                 experiment.wandb_run_name="ppo_${TASK}_controllable_nlatents${NUM_LATENTS}_envs\${ppo.num_envs}_steps\${ppo.num_steps}_seed${S}"
+    CTRL_PPO_CKPT="${CKPT_ROOT}/ppo_${TASK}_controllable_nlatents${NUM_LATENTS}_envs16_steps256_seed${S}"
+    if ! _done "${CTRL_PPO_CKPT}"; then
+      python3 -m scripts.train_ppo \
+        --config scripts/finetune_controllable/config.yaml \
+        --override seed=${S} \
+                   data.smiles=${DATA_DIR} \
+                   reward.task=${TASK} \
+                   tokenizer.vocab_size=${VOCAB_SIZE} \
+                   ckpt.init_from=resume \
+                   ckpt.path="${DISTILL_CKPT}" \
+                   ckpt.ckpt_name="best.pt" \
+                   loader.ckpt_controllable_path="${CTRL_CKPT}" \
+                   loader.ckpt_name="best.pt" \
+                   ppo.budget=${RL_BUDGET} \
+                   log.group=${WANDB_GROUP} \
+                   experiment.wandb_run_name="ppo_${TASK}_controllable_nlatents${NUM_LATENTS}_envs\${ppo.num_envs}_steps\${ppo.num_steps}_seed${S}"
+    fi
   done
 
 done
