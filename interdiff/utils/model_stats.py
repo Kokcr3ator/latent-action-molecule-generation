@@ -39,10 +39,9 @@ def namespaced_parameter_counts(model: nn.Module, namespace: str) -> Dict[str, i
 
 
 def log_parameter_counts(logger: Any, model: nn.Module, namespace: str) -> Dict[str, int | float]:
-    """Log parameter counts to a logger config and as a one-time metric."""
+    """Log parameter counts to the run config (static metadata, not a chart metric)."""
     counts = namespaced_parameter_counts(model, namespace)
     logger.log_config(counts)
-    logger.log({**counts, "step": 0})
     return counts
 
 
