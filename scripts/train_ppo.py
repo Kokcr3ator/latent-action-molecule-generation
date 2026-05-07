@@ -115,6 +115,8 @@ def main() -> None:
         logger.log_config(cfg_dict)
         log_parameter_counts(logger, model, "model")
         log_parameter_counts(logger, ppo_agent, "ppo_agent")
+        if hasattr(model, 'num_latents'):
+            logger.log_config({"model/num_latents": model.num_latents})
 
     model_counts = parameter_counts(model)
     ppo_agent_counts = parameter_counts(ppo_agent)

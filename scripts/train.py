@@ -54,6 +54,8 @@ def main() -> None:
         cfg_dict = OmegaConf.to_container(cfg, resolve=True, throw_on_missing=False)
         logger.log_config(cfg_dict)
         log_parameter_counts(logger, model, "model")
+        if hasattr(model, 'num_latents'):
+            logger.log_config({"model/num_latents": model.num_latents})
 
     model_counts = parameter_counts(model)
     log.info(
