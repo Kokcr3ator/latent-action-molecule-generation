@@ -158,10 +158,12 @@ class TrainerBase(ABC):
         return {'val/loss': sum(losses) / max(1, len(losses))}
 
     def save_checkpoint(self, path: str):
+        # Unwrap torch.compile wrapper to get the original picklable module.
+        orig = getattr(self.model, '_orig_mod', self.model)
         checkpoint = {
-            "config": vars(self.model),
-            "params": self.model.state_dict(),
-            "class": self.model.__class__.__name__,
+            "config": vars(orig),
+            "params": orig.state_dict(),
+            "class": orig.__class__.__name__,
             "train_state": {
                 "step": self.state.step,
                 "best_val": self.state.best_val,
