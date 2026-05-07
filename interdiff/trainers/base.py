@@ -123,28 +123,27 @@ class TrainerBase(ABC):
                 if self.scheduler is not None:
                     self.scheduler.step()
 
-            if self.logger and self.state.step % self.log_interval == 0:
-                self.logger.log({"train/loss": running / max(1, self.log_interval), "step": self.state.step})
-                running = 0.0
+            log_dict = {}
 
-            elif self.state.step % self.log_interval == 0:
-                print(f"step {self.state.step}: train loss {running / max(1, self.log_interval)}")
+            if self.state.step % self.log_interval == 0:
+                log_dict["train/loss"] = running / max(1, self.log_interval)
                 running = 0.0
 
             if self.state.step % self.eval_interval == 0:
-                # train_dataloader is also passed for building reference set for novelty metric if needed
-                val_dict = self.evaluate(val_dataloader = val_dataloader, train_dataloader =train_dataloader)
+                val_dict = self.evaluate(val_dataloader=val_dataloader, train_dataloader=train_dataloader)
                 val = val_dict.get('val/loss', float('inf'))
-                if self.logger:
-                    val_dict_log = {"step": self.state.step}
-                    val_dict_log.update(val_dict)
-                    self.logger.log(val_dict_log)
-                else:
-                    print(f"step {self.state.step}: " + ", ".join([f"{k} {v}" for k, v in val_dict.items()]))
+                log_dict.update(val_dict)
                 improved = val < self.state.best_val
                 self.state.best_val = min(self.state.best_val, val)
-                if self.always_save_checkpoint or improved:  
-                    self.save_checkpoint(os.path.join(self.ckpt_path, "best.pt")) 
+                if self.always_save_checkpoint or improved:
+                    self.save_checkpoint(os.path.join(self.ckpt_path, "best.pt"))
+
+            if log_dict:
+                if self.logger:
+                    self.logger.log({"step": self.state.step, **log_dict})
+                else:
+                    print(f"step {self.state.step}: " + ", ".join(f"{k} {v}" for k, v in log_dict.items()))
+
             self.state.step += 1
 
     @torch.no_grad()
