@@ -39,6 +39,9 @@ CONTROLLABLE_ITERS=$(_cfg controllable_iters)
 DISTILLATION_ITERS=$(_cfg distillation_iters)
 RL_BUDGET=$(_cfg rl_budget)
 WANDB_GROUP=$(_cfg wandb_group)
+WANDB_PROJECT=$(_cfg wandb_project)
+WANDB_ENTITY=$(_cfg wandb_entity)
+WANDB_LOG=$(_cfg wandb_log)
 
 for S in "${SEEDS[@]}"; do
   echo "========== Seed ${S} =========="
@@ -56,6 +59,9 @@ for S in "${SEEDS[@]}"; do
                  data.smiles=${DATA_DIR} \
                  tokenizer.vocab_size=${VOCAB_SIZE} \
                  training.max_iters=${PRETRAIN_ITERS} \
+                 wandb_log=${WANDB_LOG} \
+                 experiment.wandb_project=${WANDB_PROJECT} \
+                 experiment.wandb_entity=${WANDB_ENTITY} \
                  log.group=${WANDB_GROUP}
   fi
 
@@ -69,6 +75,9 @@ for S in "${SEEDS[@]}"; do
                  model.num_latents=${NUM_LATENTS} \
                  tokenizer.vocab_size=${VOCAB_SIZE} \
                  training.max_iters=${CONTROLLABLE_ITERS} \
+                 wandb_log=${WANDB_LOG} \
+                 experiment.wandb_project=${WANDB_PROJECT} \
+                 experiment.wandb_entity=${WANDB_ENTITY} \
                  log.group=${WANDB_GROUP}
   fi
 
@@ -83,6 +92,9 @@ for S in "${SEEDS[@]}"; do
                  loader.controllable_gpt_path="${CTRL_CKPT}/best.pt" \
                  model.lm_head_out_size=${NUM_LATENTS} \
                  training.max_iters=${DISTILLATION_ITERS} \
+                 wandb_log=${WANDB_LOG} \
+                 experiment.wandb_project=${WANDB_PROJECT} \
+                 experiment.wandb_entity=${WANDB_ENTITY} \
                  log.group=${WANDB_GROUP}
   fi
 
@@ -102,6 +114,9 @@ for S in "${SEEDS[@]}"; do
                    ckpt.path="${BASE_CKPT}" \
                    ckpt.ckpt_name="best.pt" \
                    ppo.budget=${RL_BUDGET} \
+                   wandb_log=${WANDB_LOG} \
+                   experiment.wandb_project=${WANDB_PROJECT} \
+                   experiment.wandb_entity=${WANDB_ENTITY} \
                    log.group=${WANDB_GROUP}
     fi
   done
@@ -124,6 +139,9 @@ for S in "${SEEDS[@]}"; do
                    loader.ckpt_controllable_path="${CTRL_CKPT}" \
                    loader.ckpt_name="best.pt" \
                    ppo.budget=${RL_BUDGET} \
+                   wandb_log=${WANDB_LOG} \
+                   experiment.wandb_project=${WANDB_PROJECT} \
+                   experiment.wandb_entity=${WANDB_ENTITY} \
                    log.group=${WANDB_GROUP} \
                    experiment.wandb_run_name="ppo_${TASK}_controllable_nlatents${NUM_LATENTS}_envs\${ppo.num_envs}_steps\${ppo.num_steps}_seed${S}"
     fi

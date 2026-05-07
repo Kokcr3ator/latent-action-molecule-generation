@@ -43,6 +43,9 @@ read -ra SEEDS <<< "$(_cfg seeds)"
 read -ra TEMPERATURES <<< "$(_cfg temperatures)"
 N_MOLS=$(_cfg n_mols)
 WANDB_GROUP=$(_cfg wandb_group)
+WANDB_PROJECT=$(_cfg wandb_project)
+WANDB_ENTITY=$(_cfg wandb_entity)
+WANDB_LOG=$(_cfg wandb_log)
 
 for S in "${SEEDS[@]}"; do
   echo "========== Seed ${S} =========="
@@ -66,6 +69,9 @@ for S in "${SEEDS[@]}"; do
                    generation.n_mols=${N_MOLS} \
                    loader.ckpt_path="${BASE_CKPT}" \
                    loader.ckpt_name="best.pt" \
+                   wandb_log=${WANDB_LOG} \
+                   experiment.wandb_project=${WANDB_PROJECT} \
+                   experiment.wandb_entity=${WANDB_ENTITY} \
                    log.group=${WANDB_GROUP} \
                    experiment.wandb_run_name="eval_base_vocab${VOCAB_SIZE}_temp${T}_seed${S}"
     fi
@@ -87,6 +93,9 @@ for S in "${SEEDS[@]}"; do
                    generation.n_mols=${N_MOLS} \
                    loader.ckpt_path="${CTRL_CKPT}" \
                    loader.ckpt_name="best.pt" \
+                   wandb_log=${WANDB_LOG} \
+                   experiment.wandb_project=${WANDB_PROJECT} \
+                   experiment.wandb_entity=${WANDB_ENTITY} \
                    log.group=${WANDB_GROUP} \
                    experiment.wandb_run_name="eval_controllable_vocab${VOCAB_SIZE}_nlatents${NUM_LATENTS}_temp${T}_seed${S}"
     fi

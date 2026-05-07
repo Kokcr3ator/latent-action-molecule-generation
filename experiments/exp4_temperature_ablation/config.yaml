@@ -20,4 +20,7 @@ temperatures: [0.5, 0.8, 1.0, 1.2, 1.5, 2.0]
 n_mols: 10000       # molecules to sample per temperature per model per seed
 
 # --- Logging -----------------------------------------------------------------
+wandb_project: interdiff
+wandb_entity: latent-action-interdiff
+wandb_log: true
 wandb_group: exp4_temperature_ablation
