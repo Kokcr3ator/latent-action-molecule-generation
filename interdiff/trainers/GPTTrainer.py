@@ -61,12 +61,12 @@ class GPTTrainer(TrainerBase):
                 step=self.state.step if hasattr(self.state, 'step') else None
             )
         
-        return {'val_loss': sum(val_losses) / max(1, len(val_losses)),
-                **pct_metrics,
-                'validity': valid,
-                'uniqueness': unique,
-                'novelty': novel,
-                'vun': vun_score
+        return {'val/loss': sum(val_losses) / max(1, len(val_losses)),
+                **{f'val/{k}': v for k, v in pct_metrics.items()},
+                'val/validity': valid,
+                'val/uniqueness': unique,
+                'val/novelty': novel,
+                'val/vun': vun_score,
                 }
     
     def forward_loss(self, batch):

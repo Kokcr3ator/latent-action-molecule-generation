@@ -134,7 +134,7 @@ class TrainerBase(ABC):
             if self.state.step % self.eval_interval == 0:
                 # train_dataloader is also passed for building reference set for novelty metric if needed
                 val_dict = self.evaluate(val_dataloader = val_dataloader, train_dataloader =train_dataloader)
-                val = val_dict.get('val_loss', float('inf'))
+                val = val_dict.get('val/loss', float('inf'))
                 if self.logger:
                     val_dict_log = {"step": self.state.step}
                     val_dict_log.update(val_dict)
@@ -156,7 +156,7 @@ class TrainerBase(ABC):
                 loss = self.forward_loss(batch).float()
             losses.append(float(loss.detach().cpu()))
         self.model.train()
-        return {'val_loss': sum(losses) / max(1, len(losses))}
+        return {'val/loss': sum(losses) / max(1, len(losses))}
 
     def save_checkpoint(self, path: str):
         self.model.save(path)

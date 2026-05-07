@@ -180,7 +180,7 @@ class ControllableGPTTrainer(TrainerBase):
 
             if self.state.step % self.eval_interval == 0:
                 val_dict = self.evaluate(val_dataloader=val_dataloader, train_dataloader=train_dataloader)
-                val = val_dict.get('val_loss', float('inf'))
+                val = val_dict.get('val/loss', float('inf'))
                 if self.logger:
                     val_dict_log = {"step": self.state.step}
                     val_dict_log.update(val_dict)
@@ -228,15 +228,15 @@ class ControllableGPTTrainer(TrainerBase):
         # Compute averages and format output
         num_batches = max(1, self.eval_iters)
         result = {
-            'val_loss': accumulated_metrics['total_loss'] / num_batches,
-            'val_lam_loss': accumulated_metrics['lam_loss'] / num_batches,
-            'val_lam_ce_loss': accumulated_metrics['lam_ce_loss'] / num_batches,
-            'val_dynamics_loss': accumulated_metrics['dynamics_loss'] / num_batches,
-            'val_vq_loss': accumulated_metrics['vq_loss'] / num_batches,
-            'val_vq_q_loss': accumulated_metrics['vq_q_loss'] / num_batches,
-            'val_vq_commit_loss': accumulated_metrics['vq_commit_loss'] / num_batches,
-            'val_vq_entropy_loss': accumulated_metrics['vq_entropy_loss'] / num_batches,
-            'val_vq_entropy': accumulated_metrics['vq_entropy'] / num_batches,
+            'val/loss': accumulated_metrics['total_loss'] / num_batches,
+            'val/lam_loss': accumulated_metrics['lam_loss'] / num_batches,
+            'val/lam_ce_loss': accumulated_metrics['lam_ce_loss'] / num_batches,
+            'val/dynamics_loss': accumulated_metrics['dynamics_loss'] / num_batches,
+            'val/vq_loss': accumulated_metrics['vq_loss'] / num_batches,
+            'val/vq_q_loss': accumulated_metrics['vq_q_loss'] / num_batches,
+            'val/vq_commit_loss': accumulated_metrics['vq_commit_loss'] / num_batches,
+            'val/vq_entropy_loss': accumulated_metrics['vq_entropy_loss'] / num_batches,
+            'val/vq_entropy': accumulated_metrics['vq_entropy'] / num_batches,
         }
 
         if self.logger is not None and wandb is not None:
