@@ -45,7 +45,13 @@ def log_parameter_counts(logger: Any, model: nn.Module, namespace: str) -> Dict[
     return counts
 
 
-def log_run_setup(logger: Any, cfg: DictConfig, **models: nn.Module) -> None:
+def log_run_setup(
+    logger: Any,
+    cfg: DictConfig,
+    config_file: str | None = None,
+    overrides: list[str] | None = None,
+    **models: nn.Module,
+) -> None:
     """Log everything needed to reproduce a run: config, parameter counts, and num_latents.
 
     Call once after the logger and all models are instantiated. Logs nothing when
@@ -54,6 +60,8 @@ def log_run_setup(logger: Any, cfg: DictConfig, **models: nn.Module) -> None:
     Args:
         logger: W&B (or other) logger instance, or None.
         cfg: Resolved OmegaConf config for the run.
+        config_file: Path to the config file passed on the command line.
+        overrides: List of dotlist override strings passed on the command line.
         **models: Keyword-named models to log, e.g. model=model, ppo_agent=ppo_agent.
                   Each is logged under its keyword name as the namespace.
     """
@@ -61,6 +69,13 @@ def log_run_setup(logger: Any, cfg: DictConfig, **models: nn.Module) -> None:
         return
     cfg_dict = OmegaConf.to_container(cfg, resolve=True, throw_on_missing=False)
     logger.log_config(cfg_dict)
+    run_meta: Dict[str, Any] = {}
+    if config_file is not None:
+        run_meta["run/config_file"] = config_file
+    if overrides:
+        run_meta["run/overrides"] = " ".join(overrides)
+    if run_meta:
+        logger.log_config(run_meta)
     for namespace, model in models.items():
         log_parameter_counts(logger, model, namespace)
         if hasattr(model, "num_latents"):

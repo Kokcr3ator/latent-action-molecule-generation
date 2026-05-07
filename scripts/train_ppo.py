@@ -108,7 +108,7 @@ def main() -> None:
     
     # Setup logger
     logger = instantiate(cfg.log) if cfg.wandb_log else None
-    log_run_setup(logger, cfg, model=model, ppo_agent=ppo_agent)
+    log_run_setup(logger, cfg, config_file=args.config, overrides=args.override, model=model, ppo_agent=ppo_agent)
 
     model_counts = parameter_counts(model)
     ppo_agent_counts = parameter_counts(ppo_agent)

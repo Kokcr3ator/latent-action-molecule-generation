@@ -48,7 +48,7 @@ def main() -> None:
     optim = instantiate(cfg.optimizer, model=model)
     sched = instantiate(cfg.scheduler, optimizer=optim)
     logger = instantiate(cfg.log) if bool(cfg.wandb_log) else None
-    log_run_setup(logger, cfg, model=model)
+    log_run_setup(logger, cfg, config_file=args.config, overrides=args.override, model=model)
 
     model_counts = parameter_counts(model)
     log.info(
