@@ -6,7 +6,9 @@
 #   RQ2: Can we compress the action space without hurting RL performance?
 #   RQ3: What is the impact of codebook size on generation quality (VUN)?
 #
-# Total runs: (3+3+3)×|seeds| + (3×5×|seeds|)×2 = 27 + 90 = 117
+# Runs the full pipeline for each (seed, vocab/codebook size) combination
+# before moving to the next, so results are available incrementally.
+# Total runs: (3+3+3+3×5+3×5) × |seeds| = 39 × 5 = 195
 # =============================================================================
 set -euo pipefail
 
@@ -23,8 +25,8 @@ print(' '.join(map(str, v)) if isinstance(v, list) else v)
 
 DATA_DIR=$(_cfg data_dir)
 CKPT_ROOT=$(_cfg ckpt_root)
-read -ra VOCAB_SIZES       <<< "$(_cfg vocab_sizes)"
-read -ra NUM_LATENTS_LIST  <<< "$(_cfg num_latents_list)"
+read -ra VOCAB_SIZES      <<< "$(_cfg vocab_sizes)"
+read -ra NUM_LATENTS_LIST <<< "$(_cfg num_latents_list)"
 CTRL_VOCAB_SIZE=$(_cfg ctrl_vocab_size)
 read -ra SEEDS <<< "$(_cfg seeds)"
 read -ra TASKS <<< "$(_cfg tasks)"
@@ -34,11 +36,13 @@ DISTILLATION_ITERS=$(_cfg distillation_iters)
 RL_BUDGET=$(_cfg rl_budget)
 WANDB_GROUP=$(_cfg wandb_group)
 
-# ---------------------------------------------------------------------------
-echo "===== [1/5] Pretrain base GPT — all vocab sizes, all seeds ====="
-for V in "${VOCAB_SIZES[@]}"; do
-  for S in "${SEEDS[@]}"; do
-    echo "  vocab=${V}, seed=${S}"
+for S in "${SEEDS[@]}"; do
+  echo "========== Seed ${S} =========="
+
+  # -------------------------------------------------------------------------
+  echo "  [1/5] Pretrain base GPT — all vocab sizes"
+  for V in "${VOCAB_SIZES[@]}"; do
+    echo "    vocab=${V}"
     python3 -m scripts.train \
       --config scripts/pretrain_base/config.yaml \
       --override seed=${S} \
@@ -47,13 +51,11 @@ for V in "${VOCAB_SIZES[@]}"; do
                  training.max_iters=${PRETRAIN_ITERS} \
                  log.group=${WANDB_GROUP}
   done
-done
 
-# ---------------------------------------------------------------------------
-echo "===== [2/5] Pretrain ControllableGPT — all codebook sizes, all seeds ====="
-for N in "${NUM_LATENTS_LIST[@]}"; do
-  for S in "${SEEDS[@]}"; do
-    echo "  num_latents=${N}, seed=${S}"
+  # -------------------------------------------------------------------------
+  echo "  [2/5] Pretrain ControllableGPT — all codebook sizes"
+  for N in "${NUM_LATENTS_LIST[@]}"; do
+    echo "    num_latents=${N}"
     python3 -m scripts.train \
       --config scripts/pretrain_controllable/config.yaml \
       --override seed=${S} \
@@ -63,13 +65,11 @@ for N in "${NUM_LATENTS_LIST[@]}"; do
                  training.max_iters=${CONTROLLABLE_ITERS} \
                  log.group=${WANDB_GROUP}
   done
-done
 
-# ---------------------------------------------------------------------------
-echo "===== [3/5] Policy distillation — all codebook sizes, all seeds ====="
-for N in "${NUM_LATENTS_LIST[@]}"; do
-  for S in "${SEEDS[@]}"; do
-    echo "  num_latents=${N}, seed=${S}"
+  # -------------------------------------------------------------------------
+  echo "  [3/5] Policy distillation — all codebook sizes"
+  for N in "${NUM_LATENTS_LIST[@]}"; do
+    echo "    num_latents=${N}"
     CTRL_CKPT="${CKPT_ROOT}/pretrain_controllable_vocab${CTRL_VOCAB_SIZE}_nlatent${N}_seed${S}"
     python3 -m scripts.train \
       --config scripts/policy_distillation/config.yaml \
@@ -81,15 +81,13 @@ for N in "${NUM_LATENTS_LIST[@]}"; do
                  training.max_iters=${DISTILLATION_ITERS} \
                  log.group=${WANDB_GROUP}
   done
-done
 
-# ---------------------------------------------------------------------------
-echo "===== [4/5] PPO finetune base GPT — all vocab sizes, tasks, seeds ====="
-for V in "${VOCAB_SIZES[@]}"; do
-  for S in "${SEEDS[@]}"; do
+  # -------------------------------------------------------------------------
+  echo "  [4/5] PPO finetune base GPT — all vocab sizes and tasks"
+  for V in "${VOCAB_SIZES[@]}"; do
     BASE_CKPT="${CKPT_ROOT}/pretrain_base_vocab${V}_seed${S}"
     for TASK in "${TASKS[@]}"; do
-      echo "  vocab=${V}, seed=${S}, task=${TASK}"
+      echo "    vocab=${V}, task=${TASK}"
       python3 -m scripts.train_ppo \
         --config scripts/finetune_base/config.yaml \
         --override seed=${S} \
@@ -104,16 +102,14 @@ for V in "${VOCAB_SIZES[@]}"; do
                    experiment.wandb_run_name="ppo_${TASK}_base_vocab${V}_envs\${ppo.num_envs}_steps\${ppo.num_steps}_seed${S}"
     done
   done
-done
 
-# ---------------------------------------------------------------------------
-echo "===== [5/5] PPO finetune ControllableGPT — all codebook sizes, tasks, seeds ====="
-for N in "${NUM_LATENTS_LIST[@]}"; do
-  for S in "${SEEDS[@]}"; do
+  # -------------------------------------------------------------------------
+  echo "  [5/5] PPO finetune ControllableGPT — all codebook sizes and tasks"
+  for N in "${NUM_LATENTS_LIST[@]}"; do
     CTRL_CKPT="${CKPT_ROOT}/pretrain_controllable_vocab${CTRL_VOCAB_SIZE}_nlatent${N}_seed${S}"
     DISTILL_CKPT="${CKPT_ROOT}/policydistillation_nlatents${N}_vocab${CTRL_VOCAB_SIZE}_seed${S}"
     for TASK in "${TASKS[@]}"; do
-      echo "  num_latents=${N}, seed=${S}, task=${TASK}"
+      echo "    num_latents=${N}, task=${TASK}"
       python3 -m scripts.train_ppo \
         --config scripts/finetune_controllable/config.yaml \
         --override seed=${S} \
@@ -130,6 +126,7 @@ for N in "${NUM_LATENTS_LIST[@]}"; do
                    experiment.wandb_run_name="ppo_${TASK}_controllable_nlatents${N}_envs\${ppo.num_envs}_steps\${ppo.num_steps}_seed${S}"
     done
   done
+
 done
 
 echo "===== Experiment 2 complete ====="

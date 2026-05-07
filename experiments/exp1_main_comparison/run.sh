@@ -6,7 +6,9 @@
 #   RQ1: Does a latent action model help RL fine-tuning?
 #   RQ5: Does the model generalise across different molecular properties?
 #
-# Total runs: (1+1+1)×|seeds| + (5×|seeds|)×2 = 3×3 + 30 = 39
+# Runs the full 5-stage pipeline for each seed before moving to the next,
+# so at least one complete replicate is available as early as possible.
+# Total runs: (1+1+1+5+5) × |seeds| = 13 × 5 = 65
 # =============================================================================
 set -euo pipefail
 
@@ -33,10 +35,15 @@ DISTILLATION_ITERS=$(_cfg distillation_iters)
 RL_BUDGET=$(_cfg rl_budget)
 WANDB_GROUP=$(_cfg wandb_group)
 
-# ---------------------------------------------------------------------------
-echo "===== [1/5] Pretrain base GPT ====="
 for S in "${SEEDS[@]}"; do
-  echo "  seed=${S}"
+  echo "========== Seed ${S} =========="
+
+  BASE_CKPT="${CKPT_ROOT}/pretrain_base_vocab${VOCAB_SIZE}_seed${S}"
+  CTRL_CKPT="${CKPT_ROOT}/pretrain_controllable_vocab${VOCAB_SIZE}_nlatent${NUM_LATENTS}_seed${S}"
+  DISTILL_CKPT="${CKPT_ROOT}/policydistillation_nlatents${NUM_LATENTS}_vocab${VOCAB_SIZE}_seed${S}"
+
+  # -------------------------------------------------------------------------
+  echo "  [1/5] Pretrain base GPT"
   python3 -m scripts.train \
     --config scripts/pretrain_base/config.yaml \
     --override seed=${S} \
@@ -44,12 +51,9 @@ for S in "${SEEDS[@]}"; do
                tokenizer.vocab_size=${VOCAB_SIZE} \
                training.max_iters=${PRETRAIN_ITERS} \
                log.group=${WANDB_GROUP}
-done
 
-# ---------------------------------------------------------------------------
-echo "===== [2/5] Pretrain ControllableGPT ====="
-for S in "${SEEDS[@]}"; do
-  echo "  seed=${S}"
+  # -------------------------------------------------------------------------
+  echo "  [2/5] Pretrain ControllableGPT"
   python3 -m scripts.train \
     --config scripts/pretrain_controllable/config.yaml \
     --override seed=${S} \
@@ -58,13 +62,9 @@ for S in "${SEEDS[@]}"; do
                tokenizer.vocab_size=${VOCAB_SIZE} \
                training.max_iters=${CONTROLLABLE_ITERS} \
                log.group=${WANDB_GROUP}
-done
 
-# ---------------------------------------------------------------------------
-echo "===== [3/5] Policy distillation ====="
-for S in "${SEEDS[@]}"; do
-  echo "  seed=${S}"
-  CTRL_CKPT="${CKPT_ROOT}/pretrain_controllable_vocab${VOCAB_SIZE}_nlatent${NUM_LATENTS}_seed${S}"
+  # -------------------------------------------------------------------------
+  echo "  [3/5] Policy distillation"
   python3 -m scripts.train \
     --config scripts/policy_distillation/config.yaml \
     --override seed=${S} \
@@ -74,14 +74,11 @@ for S in "${SEEDS[@]}"; do
                model.lm_head_out_size=${NUM_LATENTS} \
                training.max_iters=${DISTILLATION_ITERS} \
                log.group=${WANDB_GROUP}
-done
 
-# ---------------------------------------------------------------------------
-echo "===== [4/5] PPO finetune base GPT — all tasks, all seeds ====="
-for S in "${SEEDS[@]}"; do
-  BASE_CKPT="${CKPT_ROOT}/pretrain_base_vocab${VOCAB_SIZE}_seed${S}"
+  # -------------------------------------------------------------------------
+  echo "  [4/5] PPO finetune base GPT — all tasks"
   for TASK in "${TASKS[@]}"; do
-    echo "  seed=${S}, task=${TASK}"
+    echo "    task=${TASK}"
     python3 -m scripts.train_ppo \
       --config scripts/finetune_base/config.yaml \
       --override seed=${S} \
@@ -94,15 +91,11 @@ for S in "${SEEDS[@]}"; do
                  ppo.budget=${RL_BUDGET} \
                  log.group=${WANDB_GROUP}
   done
-done
 
-# ---------------------------------------------------------------------------
-echo "===== [5/5] PPO finetune ControllableGPT — all tasks, all seeds ====="
-for S in "${SEEDS[@]}"; do
-  CTRL_CKPT="${CKPT_ROOT}/pretrain_controllable_vocab${VOCAB_SIZE}_nlatent${NUM_LATENTS}_seed${S}"
-  DISTILL_CKPT="${CKPT_ROOT}/policydistillation_nlatents${NUM_LATENTS}_vocab${VOCAB_SIZE}_seed${S}"
+  # -------------------------------------------------------------------------
+  echo "  [5/5] PPO finetune ControllableGPT — all tasks"
   for TASK in "${TASKS[@]}"; do
-    echo "  seed=${S}, task=${TASK}"
+    echo "    task=${TASK}"
     python3 -m scripts.train_ppo \
       --config scripts/finetune_controllable/config.yaml \
       --override seed=${S} \
@@ -118,6 +111,7 @@ for S in "${SEEDS[@]}"; do
                  log.group=${WANDB_GROUP} \
                  experiment.wandb_run_name="ppo_${TASK}_controllable_nlatents${NUM_LATENTS}_envs\${ppo.num_envs}_steps\${ppo.num_steps}_seed${S}"
   done
+
 done
 
 echo "===== Experiment 1 complete ====="
