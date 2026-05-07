@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Experiment 2 — Compression comparison: base GPT vs ControllableGPT
+# Experiment 3 — LAM scaling: how does ControllableGPT scale with codebook size?
 #
 # Research question:
-#   RQ2: Can we compress the action space without hurting RL performance?
+#   RQ3: What is the impact of codebook size on generation quality (VUN) and
+#        RL performance?
 #
-# Trains a single base GPT baseline and sweeps ControllableGPT codebook sizes,
-# comparing RL fine-tuning performance at each level of compression.
+# ControllableGPT only — no baseline.  Sweeps codebook sizes both smaller and
+# larger than the token vocabulary to characterise the scaling behaviour of
+# the latent action model.
 # Runs the full pipeline for each seed before moving to the next.
-# Total runs: (1 + (1+1+5)×|num_latents| + 5) × |seeds|
-#           = (1 + 7×6 + 5) × 5 = 48 × 5 = 240
+# Total runs: (1+1+5) × |num_latents| × |seeds| = 7 × 6 × 5 = 210
 # =============================================================================
 set -euo pipefail
 
@@ -35,7 +36,6 @@ VOCAB_SIZE=$(_cfg vocab_size)
 read -ra NUM_LATENTS_LIST <<< "$(_cfg num_latents_list)"
 read -ra SEEDS <<< "$(_cfg seeds)"
 read -ra TASKS <<< "$(_cfg tasks)"
-PRETRAIN_ITERS=$(_cfg pretrain_iters)
 CONTROLLABLE_ITERS=$(_cfg controllable_iters)
 DISTILLATION_ITERS=$(_cfg distillation_iters)
 RL_BUDGET=$(_cfg rl_budget)
@@ -44,22 +44,8 @@ WANDB_GROUP=$(_cfg wandb_group)
 for S in "${SEEDS[@]}"; do
   echo "========== Seed ${S} =========="
 
-  BASE_CKPT="${CKPT_ROOT}/pretrain_base_vocab${VOCAB_SIZE}_seed${S}"
-
   # -------------------------------------------------------------------------
-  echo "  [1/5] Pretrain base GPT"
-  if ! _done "${BASE_CKPT}"; then
-    python3 -m scripts.train \
-      --config scripts/pretrain_base/config.yaml \
-      --override seed=${S} \
-                 data.smiles=${DATA_DIR} \
-                 tokenizer.vocab_size=${VOCAB_SIZE} \
-                 training.max_iters=${PRETRAIN_ITERS} \
-                 log.group=${WANDB_GROUP}
-  fi
-
-  # -------------------------------------------------------------------------
-  echo "  [2/5] Pretrain ControllableGPT — all codebook sizes"
+  echo "  [1/3] Pretrain ControllableGPT — all codebook sizes"
   for N in "${NUM_LATENTS_LIST[@]}"; do
     echo "    num_latents=${N}"
     CTRL_CKPT="${CKPT_ROOT}/pretrain_controllable_vocab${VOCAB_SIZE}_nlatent${N}_seed${S}"
@@ -76,7 +62,7 @@ for S in "${SEEDS[@]}"; do
   done
 
   # -------------------------------------------------------------------------
-  echo "  [3/5] Policy distillation — all codebook sizes"
+  echo "  [2/3] Policy distillation — all codebook sizes"
   for N in "${NUM_LATENTS_LIST[@]}"; do
     echo "    num_latents=${N}"
     CTRL_CKPT="${CKPT_ROOT}/pretrain_controllable_vocab${VOCAB_SIZE}_nlatent${N}_seed${S}"
@@ -95,27 +81,7 @@ for S in "${SEEDS[@]}"; do
   done
 
   # -------------------------------------------------------------------------
-  echo "  [4/5] PPO finetune base GPT — all tasks"
-  for TASK in "${TASKS[@]}"; do
-    echo "    task=${TASK}"
-    BASE_PPO_CKPT="${CKPT_ROOT}/ppo_${TASK}_envs16_steps256_seed${S}"
-    if ! _done "${BASE_PPO_CKPT}"; then
-      python3 -m scripts.train_ppo \
-        --config scripts/finetune_base/config.yaml \
-        --override seed=${S} \
-                   data.smiles=${DATA_DIR} \
-                   reward.task=${TASK} \
-                   tokenizer.vocab_size=${VOCAB_SIZE} \
-                   ckpt.init_from=resume \
-                   ckpt.path="${BASE_CKPT}" \
-                   ckpt.ckpt_name="best.pt" \
-                   ppo.budget=${RL_BUDGET} \
-                   log.group=${WANDB_GROUP}
-    fi
-  done
-
-  # -------------------------------------------------------------------------
-  echo "  [5/5] PPO finetune ControllableGPT — all codebook sizes and tasks"
+  echo "  [3/3] PPO finetune ControllableGPT — all codebook sizes and tasks"
   for N in "${NUM_LATENTS_LIST[@]}"; do
     CTRL_CKPT="${CKPT_ROOT}/pretrain_controllable_vocab${VOCAB_SIZE}_nlatent${N}_seed${S}"
     DISTILL_CKPT="${CKPT_ROOT}/policydistillation_nlatents${N}_vocab${VOCAB_SIZE}_seed${S}"
@@ -143,4 +109,4 @@ for S in "${SEEDS[@]}"; do
 
 done
 
-echo "===== Experiment 2 complete ====="
+echo "===== Experiment 3 complete ====="

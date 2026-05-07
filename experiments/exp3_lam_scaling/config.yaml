@@ -1,5 +1,5 @@
 # =============================================================================
-# Experiment 2 — Compression comparison: base GPT vs ControllableGPT
+# Experiment 3 — LAM scaling: how does ControllableGPT scale with codebook size?
 # Properties listed here override the defaults in configs/*.yaml.
 # Everything else is inherited from the base configs unchanged.
 # =============================================================================
@@ -9,16 +9,15 @@ data_dir: interdiff/data/zinc/zinc.txt   # raw SMILES file
 ckpt_root: ckpts                         # root directory for all checkpoints
 
 # --- Model -------------------------------------------------------------------
-vocab_size: 500                          # base GPT token vocabulary size
-num_latents_list: [8, 32, 128, 512, 1024, 2048] # ControllableGPT codebook sizes to sweep
+vocab_size: 500                          # tokeniser vocab size (fixed)
+num_latents_list: [8, 32, 128, 512, 1024, 2048] # codebook sizes to sweep
 
 # --- Training ----------------------------------------------------------------
 seeds: [0, 1, 2, 3, 4]
 tasks: [qed, logp, sa, mw, tpsa]
-pretrain_iters: 100000      # max_iters for base GPT pretraining
 controllable_iters: 20000   # max_iters for ControllableGPT pretraining
 distillation_iters: 100000  # max_iters for policy distillation
 rl_budget: 250000000        # total env steps for PPO finetuning
 
 # --- Logging -----------------------------------------------------------------
-wandb_group: exp2_compression_comparison
+wandb_group: exp3_lam_scaling
