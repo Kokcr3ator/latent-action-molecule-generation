@@ -16,18 +16,20 @@ cd "${ROOT}"
 
 # Read experiment config
 _cfg() { python3 -c "
-import yaml, sys
+import yaml
 c = yaml.safe_load(open('${CFG}'))
 v = c['$1']
 print(' '.join(map(str, v)) if isinstance(v, list) else v)
 "; }
 
-PRETRAIN_SEED=$(_cfg pretrain_seed)
-read -ra RL_SEEDS        <<< "$(_cfg rl_seeds)"
-read -ra TASKS           <<< "$(_cfg tasks)"
-read -ra VOCAB_SIZES     <<< "$(_cfg vocab_sizes)"
+DATA_DIR=$(_cfg data_dir)
+CKPT_ROOT=$(_cfg ckpt_root)
+read -ra VOCAB_SIZES      <<< "$(_cfg vocab_sizes)"
 read -ra NUM_LATENTS_LIST <<< "$(_cfg num_latents_list)"
 CTRL_VOCAB_SIZE=$(_cfg ctrl_vocab_size)
+PRETRAIN_SEED=$(_cfg pretrain_seed)
+read -ra RL_SEEDS <<< "$(_cfg rl_seeds)"
+read -ra TASKS    <<< "$(_cfg tasks)"
 WANDB_GROUP=$(_cfg wandb_group)
 
 # ---------------------------------------------------------------------------
@@ -37,6 +39,7 @@ for V in "${VOCAB_SIZES[@]}"; do
   python3 -m scripts.train \
     --config configs/pretrain_base.yaml \
     --override seed=${PRETRAIN_SEED} \
+               data.smiles=${DATA_DIR} \
                tokenizer.vocab_size=${V} \
                log.group=${WANDB_GROUP}
 done
@@ -48,6 +51,7 @@ for N in "${NUM_LATENTS_LIST[@]}"; do
   python3 -m scripts.train \
     --config configs/pretrain_controllable.yaml \
     --override seed=${PRETRAIN_SEED} \
+               data.smiles=${DATA_DIR} \
                model.num_latents=${N} \
                tokenizer.vocab_size=${CTRL_VOCAB_SIZE} \
                log.group=${WANDB_GROUP}
@@ -57,10 +61,11 @@ done
 echo "===== [3/5] Policy distillation — all codebook sizes ====="
 for N in "${NUM_LATENTS_LIST[@]}"; do
   echo "  num_latents=${N}"
-  CTRL_CKPT="ckpts/pretrain_controllable_vocab${CTRL_VOCAB_SIZE}_nlatent${N}_seed${PRETRAIN_SEED}"
+  CTRL_CKPT="${CKPT_ROOT}/pretrain_controllable_vocab${CTRL_VOCAB_SIZE}_nlatent${N}_seed${PRETRAIN_SEED}"
   python3 -m scripts.train \
     --config configs/policy_distillation.yaml \
     --override seed=${PRETRAIN_SEED} \
+               data.smiles=${DATA_DIR} \
                tokenizer.vocab_size=${CTRL_VOCAB_SIZE} \
                loader.controllable_gpt_path="${CTRL_CKPT}/best.pt" \
                model.lm_head_out_size=${N} \
@@ -70,13 +75,14 @@ done
 # ---------------------------------------------------------------------------
 echo "===== [4/5] PPO finetune base GPT — all vocab sizes, tasks, and seeds ====="
 for V in "${VOCAB_SIZES[@]}"; do
-  BASE_CKPT="ckpts/pretrain_base_vocab${V}_seed${PRETRAIN_SEED}"
+  BASE_CKPT="${CKPT_ROOT}/pretrain_base_vocab${V}_seed${PRETRAIN_SEED}"
   for TASK in "${TASKS[@]}"; do
     for S in "${RL_SEEDS[@]}"; do
       echo "  vocab=${V}, task=${TASK}, seed=${S}"
       python3 -m scripts.train_ppo \
         --config configs/finetune_base.yaml \
         --override seed=${S} \
+                   data.smiles=${DATA_DIR} \
                    reward.task=${TASK} \
                    tokenizer.vocab_size=${V} \
                    ckpt.init_from=resume \
@@ -91,14 +97,15 @@ done
 # ---------------------------------------------------------------------------
 echo "===== [5/5] PPO finetune ControllableGPT — all codebook sizes, tasks, and seeds ====="
 for N in "${NUM_LATENTS_LIST[@]}"; do
-  CTRL_CKPT="ckpts/pretrain_controllable_vocab${CTRL_VOCAB_SIZE}_nlatent${N}_seed${PRETRAIN_SEED}"
-  DISTILL_CKPT="ckpts/policydistillation_nlatents${N}_vocab${CTRL_VOCAB_SIZE}_seed${PRETRAIN_SEED}"
+  CTRL_CKPT="${CKPT_ROOT}/pretrain_controllable_vocab${CTRL_VOCAB_SIZE}_nlatent${N}_seed${PRETRAIN_SEED}"
+  DISTILL_CKPT="${CKPT_ROOT}/policydistillation_nlatents${N}_vocab${CTRL_VOCAB_SIZE}_seed${PRETRAIN_SEED}"
   for TASK in "${TASKS[@]}"; do
     for S in "${RL_SEEDS[@]}"; do
       echo "  num_latents=${N}, task=${TASK}, seed=${S}"
       python3 -m scripts.train_ppo \
         --config configs/finetune_controllable.yaml \
         --override seed=${S} \
+                   data.smiles=${DATA_DIR} \
                    reward.task=${TASK} \
                    tokenizer.vocab_size=${CTRL_VOCAB_SIZE} \
                    ckpt.init_from=resume \

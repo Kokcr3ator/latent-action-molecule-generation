@@ -4,10 +4,19 @@
 # Everything else is inherited from the base configs unchanged.
 # =============================================================================
 
-pretrain_seed: 42
-rl_seeds: [42, 43, 44]
-tasks: [qed, logp, sa, mw, tpsa]
+# --- Paths -------------------------------------------------------------------
+data_dir: interdiff/data/zinc/zinc.txt   # raw SMILES file
+ckpt_root: ckpts                         # root directory for all checkpoints
+
+# --- Model -------------------------------------------------------------------
 vocab_sizes: [50, 512, 4096]     # base GPT token vocabulary sizes to sweep
 num_latents_list: [25, 128, 256] # ControllableGPT codebook sizes to sweep
 ctrl_vocab_size: 500             # ControllableGPT always uses the standard vocab
+
+# --- Training ----------------------------------------------------------------
+pretrain_seed: 42
+rl_seeds: [42, 43, 44]
+tasks: [qed, logp, sa, mw, tpsa]
+
+# --- Logging -----------------------------------------------------------------
 wandb_group: exp2_codebook_ablation
