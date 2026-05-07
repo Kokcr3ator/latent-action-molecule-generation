@@ -31,6 +31,7 @@ read -ra RL_SEEDS <<< "$(_cfg rl_seeds)"
 read -ra TASKS    <<< "$(_cfg tasks)"
 PRETRAIN_ITERS=$(_cfg pretrain_iters)
 CONTROLLABLE_ITERS=$(_cfg controllable_iters)
+DISTILLATION_ITERS=$(_cfg distillation_iters)
 RL_BUDGET=$(_cfg rl_budget)
 WANDB_GROUP=$(_cfg wandb_group)
 
@@ -68,7 +69,7 @@ python3 -m scripts.train \
              tokenizer.vocab_size=${VOCAB_SIZE} \
              loader.controllable_gpt_path="${CTRL_CKPT_DIR}/best.pt" \
              model.lm_head_out_size=${NUM_LATENTS} \
-             training.max_iters=${PRETRAIN_ITERS} \
+             training.max_iters=${DISTILLATION_ITERS} \
              log.group=${WANDB_GROUP}
 
 # ---------------------------------------------------------------------------
