@@ -5,6 +5,7 @@
 # ===== EXPERIMENT =====
 experiment:
   wandb_project: interdiff
+  wandb_entity: latent-action-interdiff
   wandb_run_name: ppo_${reward.task}_envs${ppo.num_envs}_steps${ppo.num_steps}_seed${seed}
 
 seed: 42
@@ -107,6 +108,7 @@ rl_train_cfg:
 log:
   _target_: interdiff.logging.wandb_logger.WandbLogger
   project: ${experiment.wandb_project}
+  entity: ${experiment.wandb_entity}
   name: ${experiment.wandb_run_name}
   group: ppo_controllable
 

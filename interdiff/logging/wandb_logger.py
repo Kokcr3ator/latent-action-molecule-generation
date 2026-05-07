@@ -4,8 +4,8 @@ import wandb
 from interdiff.logging.logger import Logger
 
 class WandbLogger(Logger):
-    def __init__(self, project: str, name: str, group: str):
-        wandb.init(project=project, name=name, group=group)
+    def __init__(self, project: str, name: str, group: str, entity: Optional[str] = None):
+        wandb.init(project=project, name=name, group=group, entity=entity)
     
     def log(self, metrics: dict):
         wandb.log(metrics)

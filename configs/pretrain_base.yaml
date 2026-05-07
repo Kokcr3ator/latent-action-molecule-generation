@@ -5,6 +5,7 @@
 # ===== EXPERIMENT =====
 experiment:
   wandb_project: interdiff
+  wandb_entity: latent-action-interdiff
   wandb_run_name: pretrain_base_vocab${tokenizer.vocab_size}_seed${seed}
 
 seed: 42
@@ -113,6 +114,7 @@ scheduler:
 log:
   _target_: interdiff.logging.wandb_logger.WandbLogger
   project: ${experiment.wandb_project}
+  entity: ${experiment.wandb_entity}
   name: ${experiment.wandb_run_name}
   group: pretrain_base
 
