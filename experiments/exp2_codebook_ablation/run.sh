@@ -30,6 +30,9 @@ CTRL_VOCAB_SIZE=$(_cfg ctrl_vocab_size)
 PRETRAIN_SEED=$(_cfg pretrain_seed)
 read -ra RL_SEEDS <<< "$(_cfg rl_seeds)"
 read -ra TASKS    <<< "$(_cfg tasks)"
+PRETRAIN_ITERS=$(_cfg pretrain_iters)
+CONTROLLABLE_ITERS=$(_cfg controllable_iters)
+RL_BUDGET=$(_cfg rl_budget)
 WANDB_GROUP=$(_cfg wandb_group)
 
 # ---------------------------------------------------------------------------
@@ -41,6 +44,7 @@ for V in "${VOCAB_SIZES[@]}"; do
     --override seed=${PRETRAIN_SEED} \
                data.smiles=${DATA_DIR} \
                tokenizer.vocab_size=${V} \
+               training.max_iters=${PRETRAIN_ITERS} \
                log.group=${WANDB_GROUP}
 done
 
@@ -54,6 +58,7 @@ for N in "${NUM_LATENTS_LIST[@]}"; do
                data.smiles=${DATA_DIR} \
                model.num_latents=${N} \
                tokenizer.vocab_size=${CTRL_VOCAB_SIZE} \
+               training.max_iters=${CONTROLLABLE_ITERS} \
                log.group=${WANDB_GROUP}
 done
 
@@ -69,6 +74,7 @@ for N in "${NUM_LATENTS_LIST[@]}"; do
                tokenizer.vocab_size=${CTRL_VOCAB_SIZE} \
                loader.controllable_gpt_path="${CTRL_CKPT}/best.pt" \
                model.lm_head_out_size=${N} \
+               training.max_iters=${PRETRAIN_ITERS} \
                log.group=${WANDB_GROUP}
 done
 
@@ -88,6 +94,7 @@ for V in "${VOCAB_SIZES[@]}"; do
                    ckpt.init_from=resume \
                    ckpt.path="${BASE_CKPT}" \
                    ckpt.ckpt_name="best.pt" \
+                   ppo.budget=${RL_BUDGET} \
                    log.group=${WANDB_GROUP} \
                    experiment.wandb_run_name="ppo_${TASK}_base_vocab${V}_envs\${ppo.num_envs}_steps\${ppo.num_steps}_seed${S}"
     done
@@ -113,6 +120,7 @@ for N in "${NUM_LATENTS_LIST[@]}"; do
                    ckpt.ckpt_name="best.pt" \
                    loader.ckpt_controllable_path="${CTRL_CKPT}" \
                    loader.ckpt_name="best.pt" \
+                   ppo.budget=${RL_BUDGET} \
                    log.group=${WANDB_GROUP} \
                    experiment.wandb_run_name="ppo_${TASK}_controllable_nlatents${N}_envs\${ppo.num_envs}_steps\${ppo.num_steps}_seed${S}"
     done

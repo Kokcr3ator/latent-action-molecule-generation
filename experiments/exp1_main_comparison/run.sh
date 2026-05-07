@@ -29,6 +29,9 @@ NUM_LATENTS=$(_cfg num_latents)
 PRETRAIN_SEED=$(_cfg pretrain_seed)
 read -ra RL_SEEDS <<< "$(_cfg rl_seeds)"
 read -ra TASKS    <<< "$(_cfg tasks)"
+PRETRAIN_ITERS=$(_cfg pretrain_iters)
+CONTROLLABLE_ITERS=$(_cfg controllable_iters)
+RL_BUDGET=$(_cfg rl_budget)
 WANDB_GROUP=$(_cfg wandb_group)
 
 BASE_CKPT_DIR="${CKPT_ROOT}/pretrain_base_vocab${VOCAB_SIZE}_seed${PRETRAIN_SEED}"
@@ -42,6 +45,7 @@ python3 -m scripts.train \
   --override seed=${PRETRAIN_SEED} \
              data.smiles=${DATA_DIR} \
              tokenizer.vocab_size=${VOCAB_SIZE} \
+             training.max_iters=${PRETRAIN_ITERS} \
              log.group=${WANDB_GROUP}
 
 # ---------------------------------------------------------------------------
@@ -52,6 +56,7 @@ python3 -m scripts.train \
              data.smiles=${DATA_DIR} \
              model.num_latents=${NUM_LATENTS} \
              tokenizer.vocab_size=${VOCAB_SIZE} \
+             training.max_iters=${CONTROLLABLE_ITERS} \
              log.group=${WANDB_GROUP}
 
 # ---------------------------------------------------------------------------
@@ -63,6 +68,7 @@ python3 -m scripts.train \
              tokenizer.vocab_size=${VOCAB_SIZE} \
              loader.controllable_gpt_path="${CTRL_CKPT_DIR}/best.pt" \
              model.lm_head_out_size=${NUM_LATENTS} \
+             training.max_iters=${PRETRAIN_ITERS} \
              log.group=${WANDB_GROUP}
 
 # ---------------------------------------------------------------------------
@@ -79,6 +85,7 @@ for TASK in "${TASKS[@]}"; do
                  ckpt.init_from=resume \
                  ckpt.path="${BASE_CKPT_DIR}" \
                  ckpt.ckpt_name="best.pt" \
+                 ppo.budget=${RL_BUDGET} \
                  log.group=${WANDB_GROUP}
   done
 done
@@ -99,6 +106,7 @@ for TASK in "${TASKS[@]}"; do
                  ckpt.ckpt_name="best.pt" \
                  loader.ckpt_controllable_path="${CTRL_CKPT_DIR}" \
                  loader.ckpt_name="best.pt" \
+                 ppo.budget=${RL_BUDGET} \
                  log.group=${WANDB_GROUP} \
                  experiment.wandb_run_name="ppo_${TASK}_controllable_nlatents${NUM_LATENTS}_envs\${ppo.num_envs}_steps\${ppo.num_steps}_seed${S}"
   done
