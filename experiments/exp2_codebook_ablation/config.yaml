@@ -9,14 +9,12 @@ data_dir: interdiff/data/zinc/zinc.txt   # raw SMILES file
 ckpt_root: ckpts                         # root directory for all checkpoints
 
 # --- Model -------------------------------------------------------------------
-vocab_sizes: [50, 512, 4096]     # base GPT token vocabulary sizes to sweep
-num_latents_list: [25, 128, 256] # ControllableGPT codebook sizes to sweep
+num_latents_list: [8, 32, 128, 512, 1024, 2048] # ControllableGPT codebook sizes to sweep
 ctrl_vocab_size: 500             # ControllableGPT always uses the standard vocab
 
 # --- Training ----------------------------------------------------------------
 seeds: [42, 43, 44]
 tasks: [qed, logp, sa, mw, tpsa]
-pretrain_iters: 100000      # max_iters for base GPT pretraining
 controllable_iters: 20000   # max_iters for ControllableGPT pretraining
 distillation_iters: 100000  # max_iters for policy distillation
 rl_budget: 250000000        # total env steps for PPO finetuning
