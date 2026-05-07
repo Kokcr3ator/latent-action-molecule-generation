@@ -41,7 +41,7 @@ echo "===== [1/5] Pretrain base GPT — all vocab sizes ====="
 for V in "${VOCAB_SIZES[@]}"; do
   echo "  vocab_size=${V}"
   python3 -m scripts.train \
-    --config configs/pretrain_base.yaml \
+    --config scripts/pretrain_base/config.yaml \
     --override seed=${PRETRAIN_SEED} \
                data.smiles=${DATA_DIR} \
                tokenizer.vocab_size=${V} \
@@ -54,7 +54,7 @@ echo "===== [2/5] Pretrain ControllableGPT — all codebook sizes ====="
 for N in "${NUM_LATENTS_LIST[@]}"; do
   echo "  num_latents=${N}"
   python3 -m scripts.train \
-    --config configs/pretrain_controllable.yaml \
+    --config scripts/pretrain_controllable/config.yaml \
     --override seed=${PRETRAIN_SEED} \
                data.smiles=${DATA_DIR} \
                model.num_latents=${N} \
@@ -69,7 +69,7 @@ for N in "${NUM_LATENTS_LIST[@]}"; do
   echo "  num_latents=${N}"
   CTRL_CKPT="${CKPT_ROOT}/pretrain_controllable_vocab${CTRL_VOCAB_SIZE}_nlatent${N}_seed${PRETRAIN_SEED}"
   python3 -m scripts.train \
-    --config configs/policy_distillation.yaml \
+    --config scripts/policy_distillation/config.yaml \
     --override seed=${PRETRAIN_SEED} \
                data.smiles=${DATA_DIR} \
                tokenizer.vocab_size=${CTRL_VOCAB_SIZE} \
@@ -87,7 +87,7 @@ for V in "${VOCAB_SIZES[@]}"; do
     for S in "${RL_SEEDS[@]}"; do
       echo "  vocab=${V}, task=${TASK}, seed=${S}"
       python3 -m scripts.train_ppo \
-        --config configs/finetune_base.yaml \
+        --config scripts/finetune_base/config.yaml \
         --override seed=${S} \
                    data.smiles=${DATA_DIR} \
                    reward.task=${TASK} \
@@ -111,7 +111,7 @@ for N in "${NUM_LATENTS_LIST[@]}"; do
     for S in "${RL_SEEDS[@]}"; do
       echo "  num_latents=${N}, task=${TASK}, seed=${S}"
       python3 -m scripts.train_ppo \
-        --config configs/finetune_controllable.yaml \
+        --config scripts/finetune_controllable/config.yaml \
         --override seed=${S} \
                    data.smiles=${DATA_DIR} \
                    reward.task=${TASK} \

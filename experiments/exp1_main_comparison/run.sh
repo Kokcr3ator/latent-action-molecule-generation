@@ -42,7 +42,7 @@ DISTILL_CKPT_DIR="${CKPT_ROOT}/policydistillation_nlatents${NUM_LATENTS}_vocab${
 # ---------------------------------------------------------------------------
 echo "===== [1/5] Pretrain base GPT (vocab=${VOCAB_SIZE}, seed=${PRETRAIN_SEED}) ====="
 python3 -m scripts.train \
-  --config configs/pretrain_base.yaml \
+  --config scripts/pretrain_base/config.yaml \
   --override seed=${PRETRAIN_SEED} \
              data.smiles=${DATA_DIR} \
              tokenizer.vocab_size=${VOCAB_SIZE} \
@@ -52,7 +52,7 @@ python3 -m scripts.train \
 # ---------------------------------------------------------------------------
 echo "===== [2/5] Pretrain ControllableGPT (num_latents=${NUM_LATENTS}, seed=${PRETRAIN_SEED}) ====="
 python3 -m scripts.train \
-  --config configs/pretrain_controllable.yaml \
+  --config scripts/pretrain_controllable/config.yaml \
   --override seed=${PRETRAIN_SEED} \
              data.smiles=${DATA_DIR} \
              model.num_latents=${NUM_LATENTS} \
@@ -63,7 +63,7 @@ python3 -m scripts.train \
 # ---------------------------------------------------------------------------
 echo "===== [3/5] Policy distillation (num_latents=${NUM_LATENTS}, seed=${PRETRAIN_SEED}) ====="
 python3 -m scripts.train \
-  --config configs/policy_distillation.yaml \
+  --config scripts/policy_distillation/config.yaml \
   --override seed=${PRETRAIN_SEED} \
              data.smiles=${DATA_DIR} \
              tokenizer.vocab_size=${VOCAB_SIZE} \
@@ -78,7 +78,7 @@ for TASK in "${TASKS[@]}"; do
   for S in "${RL_SEEDS[@]}"; do
     echo "  task=${TASK}, seed=${S}"
     python3 -m scripts.train_ppo \
-      --config configs/finetune_base.yaml \
+      --config scripts/finetune_base/config.yaml \
       --override seed=${S} \
                  data.smiles=${DATA_DIR} \
                  reward.task=${TASK} \
@@ -97,7 +97,7 @@ for TASK in "${TASKS[@]}"; do
   for S in "${RL_SEEDS[@]}"; do
     echo "  task=${TASK}, seed=${S}"
     python3 -m scripts.train_ppo \
-      --config configs/finetune_controllable.yaml \
+      --config scripts/finetune_controllable/config.yaml \
       --override seed=${S} \
                  data.smiles=${DATA_DIR} \
                  reward.task=${TASK} \
