@@ -1,3 +1,0 @@
-name: zinc
-smiles: interdiff/data/zinc/zinc.txt
-pad_token_id: ${tokenizer.pad_token_id}

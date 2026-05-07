@@ -1,2 +1,0 @@
-_target_: interdiff.trainers.PretrainPolicyTrainer
-controllable_gpt_path: ${loader.controllable_gpt_path}

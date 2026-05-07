@@ -1,4 +1,0 @@
-device: cuda          # 'cpu', 'cuda', 'cuda:0', ...
-dtype: float16        # choose among: float32 | float16 | bfloat16 
-always_save_checkpoint: false
-compile: true
