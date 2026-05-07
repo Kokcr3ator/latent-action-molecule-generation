@@ -61,6 +61,11 @@ def main() -> None:
     train_cfg.device = 'cuda' if torch.cuda.is_available() else 'cpu'
     trainer = instantiate(cfg.trainer, model=model, scheduler=sched, optimizer=optim, logger=logger, train_cfg=train_cfg)
 
+    if cfg.ckpt.init_from == "resume":
+        ckpt_path = os.path.join("ckpts", cfg.ckpt.path, cfg.ckpt.ckpt_name)
+        trainer.load_checkpoint(ckpt_path)
+        log.info("Resumed from %s at step %d", ckpt_path, trainer.state.step)
+
     loaders = instantiate(cfg.loader, dataset_path=save_path)
     train_dataloader = loaders.train_loader
     val_dataloader = loaders.val_loader

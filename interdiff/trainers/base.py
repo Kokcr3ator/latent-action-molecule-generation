@@ -158,7 +158,20 @@ class TrainerBase(ABC):
         return {'val/loss': sum(losses) / max(1, len(losses))}
 
     def save_checkpoint(self, path: str):
-        self.model.save(path)
+        checkpoint = {
+            "config": vars(self.model),
+            "params": self.model.state_dict(),
+            "class": self.model.__class__.__name__,
+            "train_state": {
+                "step": self.state.step,
+                "best_val": self.state.best_val,
+            },
+        }
+        torch.save(checkpoint, path)
 
     def load_checkpoint(self, path: str):
-        self.model.load(path)
+        checkpoint = torch.load(path, map_location=self.device, weights_only=False)
+        self.model.load_state_dict(checkpoint["params"])
+        if "train_state" in checkpoint:
+            self.state.step = checkpoint["train_state"]["step"]
+            self.state.best_val = checkpoint["train_state"]["best_val"]
