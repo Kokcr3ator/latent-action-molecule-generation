@@ -10,8 +10,7 @@ class WandbLogger(Logger):
 
     def log(self, metrics: dict):
         step = metrics.get("step")
-        data = {k: v for k, v in metrics.items() if k != "step"}
-        wandb.log(data, step=step)
+        wandb.log(metrics, step=step)
 
     def log_config(self, config: dict):
         wandb.config.update(config)
