@@ -78,7 +78,7 @@ training:
   log_interval: 20
   max_iters: 100000
   warmup_iters: 1000
-  batch_size: 1024
+  batch_size: 4096
   gradient_accumulation_steps: 1
   n_mols_generate: 200
   pad_token_id: ${tokenizer.pad_token_id}
