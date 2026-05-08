@@ -112,6 +112,7 @@ for S in "${SEEDS[@]}"; do
                      ckpt.ckpt_name="best.pt" \
                      loader.ckpt_controllable_path="${CTRL_CKPT}" \
                      loader.ckpt_name="best.pt" \
+                     ppo.num_actions=${N} \
                      ppo.budget=${RL_BUDGET} \
                      wandb_log=${WANDB_LOG} \
                      experiment.wandb_project=${WANDB_PROJECT} \

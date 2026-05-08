@@ -62,7 +62,7 @@ optim:
 # ===== PPO =====
 ppo:
   _target_: interdiff.ppo.HParams
-  num_actions: ${tokenizer.vocab_size}
+  num_actions: ???    # REQUIRED: set to num_latents of the ControllableGPT codebook
   num_envs: 16
   num_steps: 256
   budget: 250000000
@@ -118,7 +118,3 @@ ckpt:
   init_from: scratch
   ckpt_name: smiles_gpt_val_loss_0.9274531602859497.pt
   path: ${experiment.wandb_run_name}
-
-# ===== TRACKING ===== (for W&B tracking, not used inside the pipeline)
-tracking:
-  num_latents: ${ppo.num_actions}
