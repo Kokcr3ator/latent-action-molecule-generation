@@ -8,6 +8,7 @@ from tokenizers import Tokenizer
 from tokenizers.pre_tokenizers import Whitespace, WhitespaceSplit
 from tokenizers.trainers import BpeTrainer
 
+from .molecules import smiles_to_selfies
 
 
 def with_bounds(token_string: str) -> str:
@@ -65,7 +66,6 @@ def train_selfies_tokeniser(
 
     # Convert SMILES -> SELFIES token strings
     logging.info("Converting SMILES to SELFIES token strings...")
-    from .molecules import smiles_to_selfies
     token_strs = map(lambda x: with_bounds(smiles_to_selfies(x)), smiles)
 
     # Extract all unique tokens

@@ -7,7 +7,7 @@ import tyro
 
 from interdiff.config import to_absolute_path
 from interdiff.io import load_smiles, save_tokenised_dataset
-from interdiff.tokenise import train_smiles_tokeniser, train_selfies_tokeniser
+from interdiff.tokenise import train_smiles_tokeniser, train_selfies_tokeniser, with_bounds
 
 
 _SPECIAL_TOKENS = ["[PAD]", "[UNK]", "[MASK]", "[BOS]", "[EOS]"]
@@ -57,7 +57,7 @@ def run_tokenisation(
     tokenizer.save(os.path.join(out_dir, "tokenizer.json"))
 
     log.info("Tokenizing dataset...")
-    encodings = tokenizer.encode_batch(smiles_list)
+    encodings = tokenizer.encode_batch([with_bounds(s) for s in smiles_list])
     tokenised_dataset = [e.ids for e in encodings]
 
     vocab_size = len(tokenizer.get_vocab())

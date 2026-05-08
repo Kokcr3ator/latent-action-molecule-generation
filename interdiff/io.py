@@ -10,8 +10,6 @@ import torch
 import safetensors.torch
 from safetensors import safe_open
 
-from .tokenise import with_bounds
-
 
 def seed_all(seed: int = 42, deterministic: bool = False) -> None:
     """Seed all RNGs for reproducibility.
@@ -79,7 +77,7 @@ def load_smiles(path: str) -> List[str]:
 
     logging.info(f"Loading SMILES from {path}")
     with open(path, "r") as f:
-        return [with_bounds(line.strip()) for line in f if line.strip()]
+        return [line.strip() for line in f if line.strip()]
 
 
 def load_tokenised_dataset(path: str) -> Dict[str, Any]:
