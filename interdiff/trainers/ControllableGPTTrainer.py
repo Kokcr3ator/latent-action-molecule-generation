@@ -115,6 +115,19 @@ class ControllableGPTTrainer(TrainerBase):
                 'vq_indices': vq_loss_dict['indices'],
             }
 
+    def _codebook_stats(self, indices: torch.Tensor) -> Dict[str, float]:
+        """Compute codebook health metrics: entry norms and utilization."""
+        num_latents = self.model.lam.vq.num_latents
+        norms = self.model.lam.vq.codebook.data.float().norm(dim=-1)
+        flat = indices.view(-1)
+        utilization = flat.unique().numel() / num_latents
+        return {
+            'codebook_norm_mean': norms.mean().item(),
+            'codebook_norm_max': norms.max().item(),
+            'codebook_norm_std': norms.std().item(),
+            'codebook_utilization': utilization,
+        }
+
     def fit(self, train_dataloader: Iterable, val_dataloader: Iterable):
         """Train the model with detailed loss component logging."""
         self.model.train()
@@ -133,6 +146,7 @@ class ControllableGPTTrainer(TrainerBase):
             'vq_entropy_loss': 0.0,
             'vq_entropy': 0.0,
         }
+        running_indices = []  # accumulate over log_interval for utilization
 
         while self.state.step < self.max_iters:
             with torch.amp.autocast(device_type=self.device, dtype=self.mixed_dtype, enabled=self.mixed_dtype != torch.float32):
@@ -150,6 +164,7 @@ class ControllableGPTTrainer(TrainerBase):
             # Accumulate all metrics
             for key in running_metrics:
                 running_metrics[key] += float(loss_dict[key].detach().cpu()) / self.gradient_accumulation_steps
+            running_indices.append(loss_dict['vq_indices'].detach().cpu())
 
             if (self.state.step + 1) % self.gradient_accumulation_steps == 0:
                 if self.grad_clip and self.grad_clip > 0:
@@ -175,6 +190,13 @@ class ControllableGPTTrainer(TrainerBase):
                     log_dict[f"train/{log_key}"] = value / max(1, self.log_interval)
                 for key in running_metrics:
                     running_metrics[key] = 0.0
+
+                with torch.no_grad():
+                    cb_stats = self._codebook_stats(torch.cat(running_indices))
+                for k, v in cb_stats.items():
+                    log_dict[f"train/{k}"] = v
+                running_indices.clear()
+
                 print(
                     f"step {self.state.step:6d} | "
                     + " | ".join(
@@ -230,7 +252,7 @@ class ControllableGPTTrainer(TrainerBase):
         all_indices = torch.cat(all_indices).view(-1)
 
         self.model.train()
-        
+
         # Compute averages and format output
         num_batches = max(1, self.eval_iters)
         result = {
@@ -244,6 +266,10 @@ class ControllableGPTTrainer(TrainerBase):
             'val/vq_entropy_loss': accumulated_metrics['vq_entropy_loss'] / num_batches,
             'val/vq_entropy': accumulated_metrics['vq_entropy'] / num_batches,
         }
+
+        cb_stats = self._codebook_stats(all_indices)
+        for k, v in cb_stats.items():
+            result[f"val/{k}"] = v
 
         if self.logger is not None and wandb is not None:
             num_latents = self.model.lam.vq.num_latents
