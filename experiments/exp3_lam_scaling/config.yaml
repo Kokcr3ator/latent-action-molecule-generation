@@ -10,7 +10,6 @@ ckpt_root: ckpts                         # root directory for all checkpoints
 
 # --- Model -------------------------------------------------------------------
 vocab_size: 2048                          # tokeniser vocab size (fixed)
-# num_latents_list: [8, 32, 128, 512, 1024, 2048] # codebook sizes to sweep
 num_latents_list: [8, 32, 128, 512, 1024, 2048, 4096] # codebook sizes to sweep
 
 # --- Training ----------------------------------------------------------------
