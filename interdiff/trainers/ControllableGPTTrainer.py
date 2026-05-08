@@ -235,7 +235,7 @@ class ControllableGPTTrainer(TrainerBase):
         if self.logger is not None and wandb is not None:
             result['val/action_histogram'] = wandb.Histogram(
                 all_indices.numpy(),
-                num_bins=self.model.lam.vq.num_latents,
+                num_bins=min(self.model.lam.vq.num_latents, wandb.Histogram.MAX_LENGTH),
             )
 
         return result
