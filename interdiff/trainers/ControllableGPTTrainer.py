@@ -165,13 +165,14 @@ class ControllableGPTTrainer(TrainerBase):
 
             if self.state.step % self.log_interval == 0:
                 for key, value in running_metrics.items():
-                    log_dict[f"train/{key}"] = value / max(1, self.log_interval)
+                    log_key = "loss" if key == "total_loss" else key
+                    log_dict[f"train/{log_key}"] = value / max(1, self.log_interval)
                 for key in running_metrics:
                     running_metrics[key] = 0.0
 
             if self.state.step % self.eval_interval == 0:
                 val_dict = self.evaluate(val_dataloader=val_dataloader, train_dataloader=train_dataloader)
-                val = val_dict.get('val/total_loss', float('inf'))
+                val = val_dict.get('val/loss', float('inf'))
                 log_dict.update(val_dict)
                 improved = val < self.state.best_val
                 self.state.best_val = min(self.state.best_val, val)
@@ -221,7 +222,7 @@ class ControllableGPTTrainer(TrainerBase):
         # Compute averages and format output
         num_batches = max(1, self.eval_iters)
         result = {
-            'val/total_loss': accumulated_metrics['total_loss'] / num_batches,
+            'val/loss': accumulated_metrics['total_loss'] / num_batches,
             'val/lam_loss': accumulated_metrics['lam_loss'] / num_batches,
             'val/lam_ce_loss': accumulated_metrics['lam_ce_loss'] / num_batches,
             'val/dynamics_loss': accumulated_metrics['dynamics_loss'] / num_batches,
