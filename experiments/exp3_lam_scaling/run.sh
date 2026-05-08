@@ -30,7 +30,7 @@ _done() {
   echo "    skipping — $1/done sentinel exists"
 }
 
-_wandb_flag() { [ "$1" = "true" ] && echo "--wandb.enabled" || echo "--no-wandb.enabled"; }
+_wandb_flag() { [ "$1" = "true" ] && echo "--wandb.enabled" || echo "--wandb.no-enabled"; }
 
 DATA_DIR=$(_cfg data_dir)
 CKPT_ROOT=$(_cfg ckpt_root)
