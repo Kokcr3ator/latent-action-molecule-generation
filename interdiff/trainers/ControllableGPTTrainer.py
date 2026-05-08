@@ -188,6 +188,7 @@ class ControllableGPTTrainer(TrainerBase):
                 for key, value in running_metrics.items():
                     log_key = "loss" if key == "total_loss" else key
                     log_dict[f"train/{log_key}"] = value / max(1, self.log_interval)
+                log_dict["train/lr"] = self.optimizer.param_groups[0]["lr"]
                 for key in running_metrics:
                     running_metrics[key] = 0.0
 
