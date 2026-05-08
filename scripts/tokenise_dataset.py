@@ -1,14 +1,11 @@
-# scripts/tokenize.py
 from dataclasses import dataclass
-from typing import List, Optional
 import os
 import logging
-import argparse
 
-from omegaconf import DictConfig, MISSING
 import torch
+import tyro
 
-from interdiff.config import load_config, merge_with_overrides, to_absolute_path
+from interdiff.config import to_absolute_path
 from interdiff.io import load_smiles, save_tokenised_dataset
 from interdiff.tokenise import train_smiles_tokeniser, train_selfies_tokeniser
 
@@ -41,15 +38,27 @@ class TokenizerCfg:
         self.eos_token = eos_token
         self.seq_length = seq_length
 
-def run_tokenisation(cfg: DictConfig) -> str:
+def run_tokenisation(
+    data_smiles: str,
+    vocab_size: int,
+    context_length: int,
+    use_selfies: bool = False,
+) -> tuple[str, str]:
+    """Tokenise a SMILES dataset and return (tokenizer_dir, dataset_path)."""
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
     log = logging.getLogger("tokenize")
 
-    seq_length: int = int(cfg.tokenizer.seq_length)
-    tcfg = TokenizerCfg(**cfg.tokenizer)
+    seq_length: int = context_length
+    tcfg = TokenizerCfg(
+        dataset_path=data_smiles,
+        output_dir=f"interdiff/data/processed/zinc_tok_seqlen_{context_length}_vocabsize_{vocab_size}",
+        use_selfies=use_selfies,
+        vocab_size=vocab_size,
+        seq_length=context_length,
+    )
 
     dataset_path = to_absolute_path(tcfg.dataset_path)
     out_dir = to_absolute_path(tcfg.output_dir)
@@ -111,22 +120,24 @@ def run_tokenisation(cfg: DictConfig) -> str:
         dtype=dtype,
     )
     log.info(f"Tokenized dataset saved to {save_path}")
-    return save_path
+    return out_dir, save_path
 
-def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Tokenise a SMILES dataset.")
-    parser.add_argument("--config", type=str, required=True,
-                        help="Path to experiment YAML config file.")
-    parser.add_argument("--override", nargs="*", default=[],
-                        help="Dotlist overrides, e.g. tokenizer.vocab_size=1000")
-    return parser.parse_args()
+@dataclass
+class TokeniseCfg:
+    data_smiles: str
+    vocab_size: int = 2_048
+    context_length: int = 128
+    use_selfies: bool = False
 
 
 def main() -> None:
-    args = parse_args()
-    cfg = load_config(args.config)
-    cfg = merge_with_overrides(cfg, args.override)
-    save_path = run_tokenisation(cfg)
+    cfg = tyro.cli(TokeniseCfg)
+    tok_dir, save_path = run_tokenisation(
+        data_smiles=cfg.data_smiles,
+        vocab_size=cfg.vocab_size,
+        context_length=cfg.context_length,
+        use_selfies=cfg.use_selfies,
+    )
     print(save_path)
 
 if __name__ == "__main__":

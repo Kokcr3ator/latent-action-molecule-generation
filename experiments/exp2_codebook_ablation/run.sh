@@ -29,6 +29,8 @@ _done() {
   echo "    skipping — $1/done sentinel exists"
 }
 
+_wandb_flag() { [ "$1" = "true" ] && echo "--wandb.enabled" || echo "--no-wandb.enabled"; }
+
 DATA_DIR=$(_cfg data_dir)
 CKPT_ROOT=$(_cfg ckpt_root)
 VOCAB_SIZE=$(_cfg vocab_size)
@@ -53,17 +55,16 @@ for S in "${SEEDS[@]}"; do
   # -------------------------------------------------------------------------
   echo "  [1/5] Pretrain base GPT"
   if ! _done "${BASE_CKPT}"; then
-    python3 -m scripts.train \
-      --config scripts/pretrain_base/config.yaml \
-      --override seed=${S} \
-                 data.smiles=${DATA_DIR} \
-                 tokenizer.vocab_size=${VOCAB_SIZE} \
-                 training.max_iters=${PRETRAIN_ITERS} \
-                 training.batch_size=${BATCH_SIZE} \
-                 wandb_log=${WANDB_LOG} \
-                 experiment.wandb_project=${WANDB_PROJECT} \
-                 experiment.wandb_entity=${WANDB_ENTITY} \
-                 log.group=${WANDB_GROUP}
+    python3 -m scripts.train pretrain-base \
+      --seed ${S} \
+      --data-smiles ${DATA_DIR} \
+      --tokenizer.vocab-size ${VOCAB_SIZE} \
+      --training.max-iters ${PRETRAIN_ITERS} \
+      --training.batch-size ${BATCH_SIZE} \
+      --wandb.project ${WANDB_PROJECT} \
+      --wandb.entity ${WANDB_ENTITY} \
+      --wandb.group ${WANDB_GROUP} \
+      $(_wandb_flag ${WANDB_LOG})
   fi
 
   # -------------------------------------------------------------------------
@@ -72,18 +73,17 @@ for S in "${SEEDS[@]}"; do
     echo "    num_latents=${N}"
     CTRL_CKPT="${CKPT_ROOT}/pretrain_controllable_vocab${VOCAB_SIZE}_nlatent${N}_seed${S}"
     if ! _done "${CTRL_CKPT}"; then
-      python3 -m scripts.train \
-        --config scripts/pretrain_controllable/config.yaml \
-        --override seed=${S} \
-                   data.smiles=${DATA_DIR} \
-                   model.num_latents=${N} \
-                   tokenizer.vocab_size=${VOCAB_SIZE} \
-                   training.max_iters=${CONTROLLABLE_ITERS} \
-                   training.batch_size=${BATCH_SIZE} \
-                   wandb_log=${WANDB_LOG} \
-                   experiment.wandb_project=${WANDB_PROJECT} \
-                   experiment.wandb_entity=${WANDB_ENTITY} \
-                   log.group=${WANDB_GROUP}
+      python3 -m scripts.train pretrain-controllable \
+        --seed ${S} \
+        --data-smiles ${DATA_DIR} \
+        --tokenizer.vocab-size ${VOCAB_SIZE} \
+        --model.num-latents ${N} \
+        --training.max-iters ${CONTROLLABLE_ITERS} \
+        --training.batch-size ${BATCH_SIZE} \
+        --wandb.project ${WANDB_PROJECT} \
+        --wandb.entity ${WANDB_ENTITY} \
+        --wandb.group ${WANDB_GROUP} \
+        $(_wandb_flag ${WANDB_LOG})
     fi
   done
 
@@ -94,19 +94,18 @@ for S in "${SEEDS[@]}"; do
     CTRL_CKPT="${CKPT_ROOT}/pretrain_controllable_vocab${VOCAB_SIZE}_nlatent${N}_seed${S}"
     DISTILL_CKPT="${CKPT_ROOT}/policydistillation_nlatents${N}_vocab${VOCAB_SIZE}_seed${S}"
     if ! _done "${DISTILL_CKPT}"; then
-      python3 -m scripts.train \
-        --config scripts/policy_distillation/config.yaml \
-        --override seed=${S} \
-                   data.smiles=${DATA_DIR} \
-                   tokenizer.vocab_size=${VOCAB_SIZE} \
-                   loader.controllable_gpt_path="${CTRL_CKPT}/best.pt" \
-                   model.num_latents=${N} \
-                   training.max_iters=${DISTILLATION_ITERS} \
-                   training.batch_size=${BATCH_SIZE} \
-                   wandb_log=${WANDB_LOG} \
-                   experiment.wandb_project=${WANDB_PROJECT} \
-                   experiment.wandb_entity=${WANDB_ENTITY} \
-                   log.group=${WANDB_GROUP}
+      python3 -m scripts.train policy-distill \
+        --seed ${S} \
+        --data-smiles ${DATA_DIR} \
+        --tokenizer.vocab-size ${VOCAB_SIZE} \
+        --controllable-gpt-path "${CTRL_CKPT}/best.pt" \
+        --model.num-latents ${N} \
+        --training.max-iters ${DISTILLATION_ITERS} \
+        --training.batch-size ${BATCH_SIZE} \
+        --wandb.project ${WANDB_PROJECT} \
+        --wandb.entity ${WANDB_ENTITY} \
+        --wandb.group ${WANDB_GROUP} \
+        $(_wandb_flag ${WANDB_LOG})
     fi
   done
 
@@ -116,20 +115,17 @@ for S in "${SEEDS[@]}"; do
     echo "    task=${TASK}"
     BASE_PPO_CKPT="${CKPT_ROOT}/ppo_${TASK}_envs16_steps256_seed${S}"
     if ! _done "${BASE_PPO_CKPT}"; then
-      python3 -m scripts.train_ppo \
-        --config scripts/finetune_base/config.yaml \
-        --override seed=${S} \
-                   data.smiles=${DATA_DIR} \
-                   reward.task=${TASK} \
-                   tokenizer.vocab_size=${VOCAB_SIZE} \
-                   ckpt.init_from=resume \
-                   ckpt.path="${BASE_CKPT}" \
-                   ckpt.ckpt_name="best.pt" \
-                   ppo.budget=${RL_BUDGET} \
-                   wandb_log=${WANDB_LOG} \
-                   experiment.wandb_project=${WANDB_PROJECT} \
-                   experiment.wandb_entity=${WANDB_ENTITY} \
-                   log.group=${WANDB_GROUP}
+      python3 -m scripts.train_ppo finetune-base \
+        --seed ${S} \
+        --data-smiles ${DATA_DIR} \
+        --task ${TASK} \
+        --tokenizer.vocab-size ${VOCAB_SIZE} \
+        --pretrained-ckpt "${BASE_CKPT}" \
+        --ppo.budget ${RL_BUDGET} \
+        --wandb.project ${WANDB_PROJECT} \
+        --wandb.entity ${WANDB_ENTITY} \
+        --wandb.group ${WANDB_GROUP} \
+        $(_wandb_flag ${WANDB_LOG})
     fi
   done
 
@@ -142,24 +138,19 @@ for S in "${SEEDS[@]}"; do
       echo "    num_latents=${N}, task=${TASK}"
       CTRL_PPO_CKPT="${CKPT_ROOT}/ppo_${TASK}_controllable_nlatents${N}_envs16_steps256_seed${S}"
       if ! _done "${CTRL_PPO_CKPT}"; then
-        python3 -m scripts.train_ppo \
-          --config scripts/finetune_controllable/config.yaml \
-          --override seed=${S} \
-                     data.smiles=${DATA_DIR} \
-                     reward.task=${TASK} \
-                     tokenizer.vocab_size=${VOCAB_SIZE} \
-                     ckpt.init_from=resume \
-                     ckpt.path="${DISTILL_CKPT}" \
-                     ckpt.ckpt_name="best.pt" \
-                     loader.ckpt_controllable_path="${CTRL_CKPT}" \
-                     loader.ckpt_name="best.pt" \
-                     ppo.num_actions=${N} \
-                     ppo.budget=${RL_BUDGET} \
-                     wandb_log=${WANDB_LOG} \
-                     experiment.wandb_project=${WANDB_PROJECT} \
-                     experiment.wandb_entity=${WANDB_ENTITY} \
-                     log.group=${WANDB_GROUP} \
-                     experiment.wandb_run_name="ppo_${TASK}_controllable_nlatents${N}_envs\${ppo.num_envs}_steps\${ppo.num_steps}_seed${S}"
+        python3 -m scripts.train_ppo finetune-controllable \
+          --seed ${S} \
+          --data-smiles ${DATA_DIR} \
+          --task ${TASK} \
+          --tokenizer.vocab-size ${VOCAB_SIZE} \
+          --pretrained-ckpt "${DISTILL_CKPT}" \
+          --controllable-gpt-path "${CTRL_CKPT}" \
+          --num-latents ${N} \
+          --ppo.budget ${RL_BUDGET} \
+          --wandb.project ${WANDB_PROJECT} \
+          --wandb.entity ${WANDB_ENTITY} \
+          --wandb.group ${WANDB_GROUP} \
+          $(_wandb_flag ${WANDB_LOG})
       fi
     done
   done

@@ -1,9 +1,8 @@
 """Utilities for reporting model parameter counts."""
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any, Dict, Union
 
-from omegaconf import OmegaConf, DictConfig
 from torch import nn
 
 
@@ -40,34 +39,13 @@ def log_parameter_counts(logger: Any, model: nn.Module, namespace: str) -> Dict[
 
 def log_run_setup(
     logger: Any,
-    cfg: DictConfig,
-    config_file: str | None = None,
-    overrides: list[str] | None = None,
+    cfg: Union[Dict, Any],
     **models: nn.Module,
 ) -> None:
-    """Log everything needed to reproduce a run: config, parameter counts, and num_latents.
-
-    Call once after the logger and all models are instantiated. Logs nothing when
-    logger is None so callers do not need to guard the call themselves.
-
-    Args:
-        logger: W&B (or other) logger instance, or None.
-        cfg: Resolved OmegaConf config for the run.
-        config_file: Path to the config file passed on the command line.
-        overrides: List of dotlist override strings passed on the command line.
-        **models: Keyword-named models to log, e.g. model=model, ppo_agent=ppo_agent.
-                  Each is logged under its keyword name as the namespace.
-    """
+    """Log config and parameter counts. No-op when logger is None."""
     if logger is None:
         return
-    cfg_dict = OmegaConf.to_container(cfg, resolve=True, throw_on_missing=False)
+    cfg_dict = cfg if isinstance(cfg, dict) else vars(cfg)
     logger.log_config(cfg_dict)
-    run_meta: Dict[str, Any] = {}
-    if config_file is not None:
-        run_meta["run/config_file"] = config_file
-    if overrides:
-        run_meta["run/overrides"] = " ".join(overrides)
-    if run_meta:
-        logger.log_config(run_meta)
     for namespace, model in models.items():
         log_parameter_counts(logger, model, namespace)
