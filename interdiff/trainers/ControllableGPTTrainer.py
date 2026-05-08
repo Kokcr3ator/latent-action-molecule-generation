@@ -138,9 +138,15 @@ class ControllableGPTTrainer(TrainerBase):
             with torch.amp.autocast(device_type=self.device, dtype=self.mixed_dtype, enabled=self.mixed_dtype != torch.float32):
                 loss_dict = self.forward_loss_with_components(next(dl))
                 loss = loss_dict['total_loss'].float() / self.gradient_accumulation_steps
-            
+
+            # Detect NaN/Inf before backward to surface the exact step and component
+            nan_keys = [k for k in running_metrics if not torch.isfinite(loss_dict[k])]
+            if nan_keys:
+                print(f"[step {self.state.step}] WARNING: NaN/Inf in {nan_keys} — "
+                      + ", ".join(f"{k}={float(loss_dict[k]):.4g}" for k in running_metrics))
+
             self.scaler.scale(loss).backward()
-            
+
             # Accumulate all metrics
             for key in running_metrics:
                 running_metrics[key] += float(loss_dict[key].detach().cpu()) / self.gradient_accumulation_steps
@@ -160,6 +166,11 @@ class ControllableGPTTrainer(TrainerBase):
                 self.optimizer.zero_grad(set_to_none=True)
                 if self.scheduler is not None:
                     self.scheduler.step()
+                # Keep codebook on the unit sphere — gradient updates from q_loss un-normalize
+                # the entries; without this, rarely-selected entries (large codebooks) drift and
+                # eventually overflow float16 → q_loss NaN → vq_loss NaN.
+                if hasattr(self.model, 'lam') and hasattr(self.model.lam, 'vq'):
+                    self.model.lam.vq._normalize_codebook()
 
             log_dict = {}
 
@@ -169,6 +180,14 @@ class ControllableGPTTrainer(TrainerBase):
                     log_dict[f"train/{log_key}"] = value / max(1, self.log_interval)
                 for key in running_metrics:
                     running_metrics[key] = 0.0
+                print(
+                    f"step {self.state.step:6d} | "
+                    + " | ".join(
+                        f"{k.replace('train/', '')}={v:.4g}"
+                        for k, v in log_dict.items()
+                        if k.startswith("train/")
+                    )
+                )
 
             if self.state.step % self.eval_interval == 0:
                 val_dict = self.evaluate(val_dataloader=val_dataloader, train_dataloader=train_dataloader)
@@ -182,8 +201,6 @@ class ControllableGPTTrainer(TrainerBase):
             if log_dict:
                 if self.logger:
                     self.logger.log({"step": self.state.step, **log_dict})
-                else:
-                    print(f"step {self.state.step}: " + ", ".join(f"{k} {v}" for k, v in log_dict.items()))
 
             self.state.step += 1
 
