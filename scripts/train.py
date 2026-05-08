@@ -58,11 +58,11 @@ class TrainingCfg:
 
 @dataclass
 class OptimCfg:
-    lr: float = 3e-4
+    lr: float = 1e-4
     beta1: float = 0.9
     beta2: float = 0.99
     weight_decay: float = 0.0
-    eta_min: float = 1e-5
+    eta_min: float = 1e-7
 
 
 @dataclass
