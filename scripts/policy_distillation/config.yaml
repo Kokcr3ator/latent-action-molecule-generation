@@ -6,7 +6,7 @@
 experiment:
   wandb_project: interdiff
   wandb_entity: latent-action-interdiff
-  wandb_run_name: policydistillation_nlatents${model.lm_head_out_size}_vocab${tokenizer.vocab_size}_seed${seed}
+  wandb_run_name: policydistillation_nlatents${model.num_latents}_vocab${tokenizer.vocab_size}_seed${seed}
 
 seed: 42
 stage: policy-distill
@@ -57,7 +57,7 @@ model:
   n_embd: 384
   dropout: 0.0
   context_length: ${context.seq_len}
-  lm_head_out_size: 128    # should match num_latents from ControllableGPT
+  num_latents: 128
   vocab_size: ${tokenizer.vocab_size}
   bias: false
   pad_token_id: ${tokenizer.pad_token_id}

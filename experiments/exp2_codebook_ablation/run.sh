@@ -100,7 +100,7 @@ for S in "${SEEDS[@]}"; do
                    data.smiles=${DATA_DIR} \
                    tokenizer.vocab_size=${VOCAB_SIZE} \
                    loader.controllable_gpt_path="${CTRL_CKPT}/best.pt" \
-                   model.lm_head_out_size=${N} \
+                   model.num_latents=${N} \
                    training.max_iters=${DISTILLATION_ITERS} \
                    training.batch_size=${BATCH_SIZE} \
                    wandb_log=${WANDB_LOG} \

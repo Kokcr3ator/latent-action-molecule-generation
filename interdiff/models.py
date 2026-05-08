@@ -542,7 +542,7 @@ class ControllableGPT(SerialisableModule):
         return lam_logits, dynamics_model_logits, vq_loss_dict
 
 class PolicyNetwork(GPT):
-    def __init__(self, 
+    def __init__(self,
                  vocab_size: int = 2048,
                  n_layer: int = 6,
                  n_head: int = 6,
@@ -550,11 +550,11 @@ class PolicyNetwork(GPT):
                  dropout: float = 0.2,
                  bias: bool = False,
                  context_length: int = 128,
-                 lm_head_out_size: int = 2048,
+                 num_latents: int = 128,
                  pad_token_id: int = 0,
                  bos_token_id: int = 3,
                  eos_token_id: int = 4):
-        
+
         super().__init__(vocab_size=vocab_size,
                          n_layer=n_layer,
                          n_head=n_head,
@@ -562,7 +562,7 @@ class PolicyNetwork(GPT):
                          dropout=dropout,
                          bias=bias,
                          context_length=context_length,
-                         lm_head_out_size=lm_head_out_size,
+                         lm_head_out_size=num_latents,
                          pad_token_id=pad_token_id,
                          bos_token_id=bos_token_id,
                          eos_token_id=eos_token_id)
