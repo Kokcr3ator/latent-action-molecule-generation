@@ -166,11 +166,6 @@ class ControllableGPTTrainer(TrainerBase):
                 self.optimizer.zero_grad(set_to_none=True)
                 if self.scheduler is not None:
                     self.scheduler.step()
-                # Keep codebook on the unit sphere — gradient updates from q_loss un-normalize
-                # the entries; without this, rarely-selected entries (large codebooks) drift and
-                # eventually overflow float16 → q_loss NaN → vq_loss NaN.
-                if hasattr(self.model, 'lam') and hasattr(self.model.lam, 'vq'):
-                    self.model.lam.vq._normalize_codebook()
 
             log_dict = {}
 
