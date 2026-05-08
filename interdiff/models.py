@@ -13,7 +13,21 @@ from .modules import (
     VQConfig,
     TransformerEncoder,
 )
-from interdiff.utils.eval_utils import sample_from_logits
+
+
+def sample_from_logits(tensor_logits: torch.Tensor, temperature: float = 1.0, top_k: int = None) -> torch.Tensor:
+    """Sample next token from logits with optional temperature and top-k filtering."""
+    if temperature <= 0:
+        filtered = tensor_logits
+    else:
+        filtered = tensor_logits / temperature
+    if top_k is not None:
+        k = min(top_k, filtered.size(-1))
+        v, _ = torch.topk(filtered, k, dim=-1)
+        filtered = torch.where(filtered < v[:, [-1]], torch.full_like(filtered, float('-inf')), filtered)
+    if temperature <= 0:
+        return torch.argmax(filtered, dim=-1, keepdim=True)
+    return torch.multinomial(F.softmax(filtered, dim=-1), num_samples=1)
 
 class GPT(SerialisableModule):
     """Generative Pre-trained Transformer for molecular sequence generation.

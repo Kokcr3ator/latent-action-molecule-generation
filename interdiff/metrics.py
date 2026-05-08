@@ -1,8 +1,29 @@
 from __future__ import annotations
-from typing import List
+from typing import Dict, List
 
 import rdkit.Chem.rdMolDescriptors
 import rdkit.Chem.rdmolfiles
+from torch import nn
+
+
+def parameter_counts(model: nn.Module) -> Dict[str, float]:
+    """Return parameter-count statistics for a PyTorch module."""
+    total = sum(p.numel() for p in model.parameters())
+    trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    counts: Dict[str, float] = {
+        "num_parameters": total,
+        "num_parameters_millions": total / 1e6,
+        "num_trainable_parameters": trainable,
+        "num_trainable_parameters_millions": trainable / 1e6,
+        "num_frozen_parameters": total - trainable,
+        "num_frozen_parameters_millions": (total - trainable) / 1e6,
+    }
+    get_num_params = getattr(model, "get_num_params", None)
+    if callable(get_num_params):
+        non_embedding = int(get_num_params())
+        counts["num_non_embedding_parameters"] = non_embedding
+        counts["num_non_embedding_parameters_millions"] = non_embedding / 1e6
+    return counts
 from rdkit.Chem import QED, Crippen, Descriptors
 from rdkit.Chem.rdchem import KekulizeException
 import sascorer

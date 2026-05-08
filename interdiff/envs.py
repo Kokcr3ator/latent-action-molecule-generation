@@ -8,8 +8,8 @@ import torch
 
 from .models import DynamicsModel, LatentActionModel
 from .metrics import qed, logp, molecular_weight, tpsa, synthetic_accessibility
-from .utils.eval_utils import tokens_to_smiles
-from interdiff.utils.eval_utils import sample_from_logits
+from .tokenise import tokens_to_smiles
+from interdiff.models import sample_from_logits
 
 @dataclass
 class Timestep:

@@ -5,7 +5,7 @@ import logging
 import torch
 from torch.utils.data import Dataset, DataLoader, random_split
 
-from interdiff.utils import _load_tensor_from_safetensors
+from interdiff.io import _load_tensor_from_safetensors
 
 class NextTokenDataset(Dataset):
     """Dataset for next-token prediction training.

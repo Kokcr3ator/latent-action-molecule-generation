@@ -2,13 +2,31 @@ from collections import OrderedDict
 import logging
 from typing import List
 
+import torch
 from tokenizers.models import WordLevel, BPE
 from tokenizers import Tokenizer
 from tokenizers.pre_tokenizers import Whitespace, WhitespaceSplit
 from tokenizers.trainers import BpeTrainer
 
 from .molecules import smiles_to_selfies
-from .utils import with_bounds
+
+
+def with_bounds(token_string: str) -> str:
+    """Add explicit BOS/EOS markers (space-separated)."""
+    return "[BOS] " + token_string + " [EOS]"
+
+
+def tokens_to_smiles(token_ids: torch.Tensor, tokenizer) -> List[str]:
+    """Convert a batch of token ID tensors to SMILES strings."""
+    if not isinstance(token_ids, torch.Tensor):
+        raise ValueError("token_ids must be a torch.Tensor")
+    if token_ids.dim() == 1:
+        token_ids = token_ids.unsqueeze(0)
+    smiles = []
+    for ids in token_ids:
+        smile = tokenizer.decode(ids.tolist(), skip_special_tokens=True)
+        smiles.append(smile.replace(" ", ""))
+    return smiles
 
 def train_smiles_tokeniser(
     smiles: List[str],

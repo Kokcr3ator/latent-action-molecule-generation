@@ -21,8 +21,9 @@ from interdiff.data.RLLoader import FinetuneBaseLoader, FinetuneControlable
 from interdiff.trainers.base_RL import RLTrainerBase, RLTrainConfig
 from interdiff.io import load_tokenizer
 from interdiff.logging.wandb_logger import WandbLogger
-from interdiff.utils.torch_utils import seed_all
-from interdiff.utils.model_stats import log_run_setup, parameter_counts
+from interdiff.logging.logger import log_run_setup
+from interdiff.metrics import parameter_counts
+from interdiff.io import seed_all
 from scripts.tokenise_dataset import run_tokenisation
 
 # ---------------------------------------------------------------------------

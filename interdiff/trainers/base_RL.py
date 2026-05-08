@@ -16,7 +16,7 @@ import numpy as np
 from interdiff.io import load_tokenizer
 from interdiff.ppo import PPO
 from interdiff.envs import Env, Timestep
-from interdiff.utils.eval_utils import tokens_to_smiles
+from interdiff.tokenise import tokens_to_smiles
 from interdiff.metrics import validity, uniqueness, novelty, vun, property_satisfaction_rate, PROPERTY_FN_MAP
 
 

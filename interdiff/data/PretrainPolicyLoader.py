@@ -6,7 +6,7 @@ import os
 import torch
 from torch.utils.data import Dataset, DataLoader, random_split
 
-from interdiff.utils.torch_utils import _load_tensor_from_safetensors
+from interdiff.io import _load_tensor_from_safetensors
 from scripts.generate_actions import run_action_generation
 
 class PolicyPretrainDataset(Dataset):

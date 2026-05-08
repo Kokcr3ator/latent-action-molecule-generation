@@ -10,7 +10,7 @@ from tqdm import tqdm
 import safetensors.torch
 
 from interdiff.models import ControllableGPT
-from interdiff.utils import _load_tensor_from_safetensors
+from interdiff.io import _load_tensor_from_safetensors
 
 
 def run_action_generation(controllable_gpt_path: str, dataset_path: str, batch_size: int, pad_token_id: int, out_dir: str) -> str:

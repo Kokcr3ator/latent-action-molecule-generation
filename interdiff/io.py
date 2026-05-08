@@ -1,13 +1,34 @@
 import json
 import os
 import logging
+import random
 from typing import Any, Dict, List
 
+import numpy as np
 import tokenizers
 import torch
 import safetensors.torch
+from safetensors import safe_open
 
-from .utils import with_bounds
+from .tokenise import with_bounds
+
+
+def seed_all(seed: int = 42, deterministic: bool = False) -> None:
+    """Seed all RNGs for reproducibility."""
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = deterministic
+    torch.backends.cudnn.benchmark = not deterministic
+    print(f"[seed_all] seed={seed} deterministic={deterministic}")
+
+
+def _load_tensor_from_safetensors(path: str) -> torch.Tensor:
+    """Load the first tensor from a .safetensors file."""
+    with safe_open(path, framework="pt") as f:
+        return f.get_tensor(list(f.keys())[0])
 
 
 def load_vocab(vocab_path: str) -> Dict[str, Any]:

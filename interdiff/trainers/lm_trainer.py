@@ -8,7 +8,7 @@ import torch
 import torch.nn.functional as F
 
 from .base import TrainerBase
-from interdiff.utils.eval_utils import tokens_to_smiles
+from interdiff.tokenise import tokens_to_smiles
 from interdiff.metrics import (all_property_satisfaction_rates,
                                 validity, uniqueness, novelty, vun)
 

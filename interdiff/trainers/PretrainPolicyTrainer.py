@@ -2,7 +2,7 @@ from typing import List
 
 from .lm_trainer import LanguageModelTrainer
 from interdiff.models import ControllableGPT
-from interdiff.utils.eval_utils import tokens_to_smiles
+from interdiff.tokenise import tokens_to_smiles
 
 
 class PretrainPolicyTrainer(LanguageModelTrainer):
