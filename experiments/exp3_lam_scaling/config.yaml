@@ -9,7 +9,7 @@ data_dir: interdiff/data/zinc/zinc.txt   # raw SMILES file
 ckpt_root: ckpts                         # root directory for all checkpoints
 
 # --- Model -------------------------------------------------------------------
-vocab_size: 500                          # tokeniser vocab size (fixed)
+vocab_size: 2048                          # tokeniser vocab size (fixed)
 num_latents_list: [8, 32, 128, 512, 1024, 2048] # codebook sizes to sweep
 
 # --- Training ----------------------------------------------------------------
