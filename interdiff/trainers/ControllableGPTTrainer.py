@@ -214,7 +214,10 @@ class ControllableGPTTrainer(TrainerBase):
                 improved = val < self.state.best_val
                 self.state.best_val = min(self.state.best_val, val)
                 if self.always_save_checkpoint or improved:
-                    self.save_checkpoint(os.path.join(self.ckpt_path, "best.pt"))
+                    ckpt_path = os.path.join(self.ckpt_path, "best.pt")
+                    self.save_checkpoint(ckpt_path)
+                    if self.logger and improved:
+                        self.logger.log_artifact(ckpt_path, name=os.path.basename(self.ckpt_path))
 
             if log_dict:
                 if self.logger:

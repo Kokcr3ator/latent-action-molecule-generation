@@ -14,6 +14,11 @@ class WandbLogger(Logger):
     def log_config(self, config: dict):
         wandb.config.update(config)
 
+    def log_artifact(self, path: str, name: str, type: str = "model"):
+        artifact = wandb.Artifact(name=name, type=type)
+        artifact.add_file(path)
+        wandb.log_artifact(artifact)
+
     def log_table(self, table_name: str, columns: List[str], data: List[List], step: Optional[int] = None):
         wandb.log({table_name: wandb.Table(columns=columns, data=data)}, step=step)
 
