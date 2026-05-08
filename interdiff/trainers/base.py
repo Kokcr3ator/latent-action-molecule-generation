@@ -127,6 +127,7 @@ class TrainerBase(ABC):
 
             if self.state.step % self.log_interval == 0:
                 log_dict["train/loss"] = running / max(1, self.log_interval)
+                log_dict["train/lr"] = self.optimizer.param_groups[0]["lr"]
                 running = 0.0
 
             if self.state.step % self.eval_interval == 0:
