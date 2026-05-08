@@ -141,8 +141,12 @@ class TrainerBase(ABC):
             if log_dict:
                 if self.logger:
                     self.logger.log({"step": self.state.step, **log_dict})
-                else:
-                    print(f"step {self.state.step}: " + ", ".join(f"{k} {v}" for k, v in log_dict.items()))
+                if self.state.step % self.log_interval == 0:
+                    print(
+                        f"step {self.state.step:6d} | "
+                        + " | ".join(f"{k.split('/')[-1]}={v:.4g}" for k, v in log_dict.items()
+                                     if k.startswith("train/"))
+                    )
 
             self.state.step += 1
 
