@@ -28,7 +28,6 @@ _done() {
   echo "    skipping — $1/done sentinel exists"
 }
 
-_wandb_flag() { [ "$1" = "true" ] && echo "--wandb.enabled" || echo "--wandb.no-enabled"; }
 
 DATA_DIR=$(_cfg data_dir)
 CKPT_ROOT=$(_cfg ckpt_root)
@@ -44,7 +43,6 @@ BATCH_SIZE=$(_cfg batch_size)
 WANDB_GROUP=$(_cfg wandb_group)
 WANDB_PROJECT=$(_cfg wandb_project)
 WANDB_ENTITY=$(_cfg wandb_entity)
-WANDB_LOG=$(_cfg wandb_log)
 
 for S in "${SEEDS[@]}"; do
   echo "========== Seed ${S} =========="
@@ -65,7 +63,6 @@ for S in "${SEEDS[@]}"; do
       --wandb.project ${WANDB_PROJECT} \
       --wandb.entity ${WANDB_ENTITY} \
       --wandb.group ${WANDB_GROUP} \
-      $(_wandb_flag ${WANDB_LOG})
   fi
 
   # -------------------------------------------------------------------------
@@ -81,7 +78,6 @@ for S in "${SEEDS[@]}"; do
       --wandb.project ${WANDB_PROJECT} \
       --wandb.entity ${WANDB_ENTITY} \
       --wandb.group ${WANDB_GROUP} \
-      $(_wandb_flag ${WANDB_LOG})
   fi
 
   # -------------------------------------------------------------------------
@@ -98,7 +94,6 @@ for S in "${SEEDS[@]}"; do
       --wandb.project ${WANDB_PROJECT} \
       --wandb.entity ${WANDB_ENTITY} \
       --wandb.group ${WANDB_GROUP} \
-      $(_wandb_flag ${WANDB_LOG})
   fi
 
   # -------------------------------------------------------------------------
@@ -117,7 +112,6 @@ for S in "${SEEDS[@]}"; do
         --wandb.project ${WANDB_PROJECT} \
         --wandb.entity ${WANDB_ENTITY} \
         --wandb.group ${WANDB_GROUP} \
-        $(_wandb_flag ${WANDB_LOG})
     fi
   done
 
@@ -139,7 +133,6 @@ for S in "${SEEDS[@]}"; do
         --wandb.project ${WANDB_PROJECT} \
         --wandb.entity ${WANDB_ENTITY} \
         --wandb.group ${WANDB_GROUP} \
-        $(_wandb_flag ${WANDB_LOG})
     fi
   done
 

@@ -24,5 +24,4 @@ rl_budget: 250000000        # total env steps for PPO finetuning
 # --- Logging -----------------------------------------------------------------
 wandb_project: interdiff
 wandb_entity: latent-action-interdiff
-wandb_log: true
 wandb_group: exp1_main_comparison

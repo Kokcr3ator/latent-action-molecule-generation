@@ -45,7 +45,6 @@ class WandbCfg:
     project: str = "interdiff"
     entity: str = "latent-action-interdiff"
     group: str = ""
-    enabled: bool = True
 
 
 @dataclass
@@ -184,7 +183,7 @@ def main() -> None:
         rl_train_cfg=SimpleNamespace(
             tokenizer_dir=tok_dir, ckpt_path=os.path.join(cfg.ckpt_root, run_name)
         ),
-        wandb_log=cfg.wandb.enabled,
+        wandb_log=True,
     )
 
     model = loader.load_pretrained_model(loader_cfg, device)
@@ -214,15 +213,11 @@ def main() -> None:
 
     ppo_agent = loader.setup_ppo_agent(loader_cfg, model, reference_model, device)
 
-    logger = (
-        WandbLogger(
-            project=cfg.wandb.project,
-            entity=cfg.wandb.entity,
-            name=run_name,
-            group=cfg.wandb.group,
-        )
-        if cfg.wandb.enabled
-        else None
+    logger = WandbLogger(
+        project=cfg.wandb.project,
+        entity=cfg.wandb.entity,
+        name=run_name,
+        group=cfg.wandb.group,
     )
 
     log_run_setup(logger, asdict(cfg), model=model, ppo_agent=ppo_agent)
@@ -261,7 +256,7 @@ def main() -> None:
         anneal_lr=ppo.anneal_lr,
         lambda_kld=ppo.lambda_kld,
         log_frequency=ppo.log_frequency,
-        log_to_wandb=cfg.wandb.enabled,
+        log_to_wandb=True,
         wandb_project_name=cfg.wandb.project,
         save_dir=ckpt_path,
         eval_frequency=ppo.eval_frequency,

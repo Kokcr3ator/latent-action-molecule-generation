@@ -69,7 +69,6 @@ class WandbCfg:
     project: str = "interdiff"
     entity: str = "latent-action-interdiff"
     group: str = ""
-    enabled: bool = True
 
 
 # ---------------------------------------------------------------------------
@@ -255,7 +254,7 @@ def main() -> None:
 
     logger = WandbLogger(
         project=cfg.wandb.project, entity=cfg.wandb.entity, name=run_name, group=cfg.wandb.group,
-    ) if cfg.wandb.enabled else None
+    )
 
     log_run_setup(logger, asdict(cfg), model=model)
 
