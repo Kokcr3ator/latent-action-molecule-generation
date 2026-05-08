@@ -63,7 +63,7 @@ for S in "${SEEDS[@]}"; do
         --training.batch-size ${BATCH_SIZE} \
         --wandb.project ${WANDB_PROJECT} \
         --wandb.entity ${WANDB_ENTITY} \
-        --wandb.group ${WANDB_GROUP} \
+        --wandb.group ${WANDB_GROUP}
     fi
   done
 
@@ -84,7 +84,7 @@ for S in "${SEEDS[@]}"; do
         --training.batch-size ${BATCH_SIZE} \
         --wandb.project ${WANDB_PROJECT} \
         --wandb.entity ${WANDB_ENTITY} \
-        --wandb.group ${WANDB_GROUP} \
+        --wandb.group ${WANDB_GROUP}
     fi
   done
 
@@ -108,7 +108,7 @@ for S in "${SEEDS[@]}"; do
           --ppo.budget ${RL_BUDGET} \
           --wandb.project ${WANDB_PROJECT} \
           --wandb.entity ${WANDB_ENTITY} \
-          --wandb.group ${WANDB_GROUP} \
+          --wandb.group ${WANDB_GROUP}
       fi
     done
   done
