@@ -9,34 +9,9 @@ from interdiff.config import to_absolute_path
 from interdiff.io import load_smiles, save_tokenised_dataset
 from interdiff.tokenise import train_smiles_tokeniser, train_selfies_tokeniser
 
-@dataclass
-class TokenizerCfg:
-    dataset_path: str = MISSING
-    output_dir: str = "data/processed/zinc_tok_seqlen_{seq_len}_vocabsize_{vocab_size}"
-    use_selfies: bool = False
-    vocab_size: int = 500             
-    pad_token: str = "[PAD]"
-    unk_token: str = "[UNK]"
-    mask_token: str = "[MASK]"
-    bos_token: str = "[BOS]"
-    eos_token: str = "[EOS]"
-    seq_length: int = 128
 
-    def __init__(self, dataset_path: str, output_dir: str,
-                 use_selfies: bool, vocab_size: int,
-                 pad_token: str, unk_token: str,
-                 mask_token: str, bos_token: str,
-                 eos_token: str, seq_length: int, **kwargs) -> None:
-        self.dataset_path = dataset_path
-        self.output_dir = output_dir
-        self.use_selfies = use_selfies
-        self.vocab_size = vocab_size
-        self.pad_token = pad_token
-        self.unk_token = unk_token
-        self.mask_token = mask_token
-        self.bos_token = bos_token
-        self.eos_token = eos_token
-        self.seq_length = seq_length
+_SPECIAL_TOKENS = ["[PAD]", "[UNK]", "[MASK]", "[BOS]", "[EOS]"]
+
 
 def run_tokenisation(
     data_smiles: str,
@@ -51,53 +26,35 @@ def run_tokenisation(
     )
     log = logging.getLogger("tokenize")
 
-    seq_length: int = context_length
-    tcfg = TokenizerCfg(
-        dataset_path=data_smiles,
-        output_dir=f"interdiff/data/processed/zinc_tok_seqlen_{context_length}_vocabsize_{vocab_size}",
-        use_selfies=use_selfies,
-        vocab_size=vocab_size,
-        seq_length=context_length,
+    out_dir = to_absolute_path(
+        f"interdiff/data/processed/zinc_tok_seqlen_{context_length}_vocabsize_{vocab_size}"
     )
-
-    dataset_path = to_absolute_path(tcfg.dataset_path)
-    out_dir = to_absolute_path(tcfg.output_dir)
+    dataset_path = to_absolute_path(data_smiles)
     os.makedirs(out_dir, exist_ok=True)
 
-    log.info(f"Seq length (context.seq_len): {seq_length}")
     log.info(f"Loading SMILES from {dataset_path}")
     smiles_list = load_smiles(dataset_path)
     log.info(f"Loaded {len(smiles_list)} SMILES")
 
-    special_tokens = [
-        tcfg.pad_token,
-        tcfg.unk_token,
-        tcfg.mask_token,
-        tcfg.bos_token,
-        tcfg.eos_token,
-    ]
-
-    log.info(f"Training {'SELFIES' if tcfg.use_selfies else 'SMILES'} tokenizer")
-    if tcfg.use_selfies:
-        tokenizer = train_selfies_tokeniser(smiles_list, special_tokens=special_tokens)
+    log.info(f"Training {'SELFIES' if use_selfies else 'SMILES'} tokenizer")
+    if use_selfies:
+        tokenizer = train_selfies_tokeniser(smiles_list, special_tokens=_SPECIAL_TOKENS)
     else:
         tokenizer = train_smiles_tokeniser(
             smiles_list,
-            vocab_size=tcfg.vocab_size,
-            special_tokens=special_tokens,
+            vocab_size=vocab_size,
+            special_tokens=_SPECIAL_TOKENS,
         )
 
-    tokenizer.enable_truncation(max_length=seq_length)
+    pad_token = _SPECIAL_TOKENS[0]
+    tokenizer.enable_truncation(max_length=context_length)
     tokenizer.enable_padding(
-        pad_id=tokenizer.token_to_id(tcfg.pad_token),
-        pad_token=tcfg.pad_token,
-        length=seq_length,
+        pad_id=tokenizer.token_to_id(pad_token),
+        pad_token=pad_token,
+        length=context_length,
     )
     log.info("Tokenizer training complete.")
-
-    tok_path = os.path.join(out_dir, "tokenizer.json")
-    log.info(f"Saving tokenizer to {tok_path}")
-    tokenizer.save(tok_path)
+    tokenizer.save(os.path.join(out_dir, "tokenizer.json"))
 
     log.info("Tokenizing dataset...")
     encodings = tokenizer.encode_batch(smiles_list)
@@ -122,6 +79,7 @@ def run_tokenisation(
     log.info(f"Tokenized dataset saved to {save_path}")
     return out_dir, save_path
 
+
 @dataclass
 class TokeniseCfg:
     data_smiles: str
@@ -140,8 +98,6 @@ def main() -> None:
     )
     print(save_path)
 
+
 if __name__ == "__main__":
     main()
-
-
-
