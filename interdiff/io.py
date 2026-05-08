@@ -14,14 +14,21 @@ from .tokenise import with_bounds
 
 
 def seed_all(seed: int = 42, deterministic: bool = False) -> None:
-    """Seed all RNGs for reproducibility."""
+    """Seed all RNGs for reproducibility.
+
+    Sets deterministic=True and benchmark=False for full reproducibility.
+    With the default deterministic=False, benchmark is still disabled to
+    prevent cudnn from selecting different algorithms across runs.
+    """
     os.environ["PYTHONHASHSEED"] = str(seed)
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
     torch.backends.cudnn.deterministic = deterministic
-    torch.backends.cudnn.benchmark = not deterministic
+    torch.backends.cudnn.benchmark = False  # always off — avoids algo variation across runs
+    if deterministic:
+        torch.use_deterministic_algorithms(True)
     print(f"[seed_all] seed={seed} deterministic={deterministic}")
 
 
