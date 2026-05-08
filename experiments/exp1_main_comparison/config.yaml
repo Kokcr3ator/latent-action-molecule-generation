@@ -13,6 +13,7 @@ vocab_size: 500       # base GPT token vocabulary size
 num_latents: 128      # ControllableGPT codebook size
 
 # --- Training ----------------------------------------------------------------
+batch_size: 3072
 seeds: [0, 1, 2, 3, 4]
 tasks: [qed, logp, sa, mw, tpsa]
 pretrain_iters: 100000      # max_iters for base GPT pretraining

@@ -39,6 +39,7 @@ read -ra TASKS <<< "$(_cfg tasks)"
 CONTROLLABLE_ITERS=$(_cfg controllable_iters)
 DISTILLATION_ITERS=$(_cfg distillation_iters)
 RL_BUDGET=$(_cfg rl_budget)
+BATCH_SIZE=$(_cfg batch_size)
 WANDB_GROUP=$(_cfg wandb_group)
 WANDB_PROJECT=$(_cfg wandb_project)
 WANDB_ENTITY=$(_cfg wandb_entity)
@@ -60,6 +61,7 @@ for S in "${SEEDS[@]}"; do
                    model.num_latents=${N} \
                    tokenizer.vocab_size=${VOCAB_SIZE} \
                    training.max_iters=${CONTROLLABLE_ITERS} \
+                   training.batch_size=${BATCH_SIZE} \
                    wandb_log=${WANDB_LOG} \
                    experiment.wandb_project=${WANDB_PROJECT} \
                    experiment.wandb_entity=${WANDB_ENTITY} \
@@ -82,6 +84,7 @@ for S in "${SEEDS[@]}"; do
                    loader.controllable_gpt_path="${CTRL_CKPT}/best.pt" \
                    model.lm_head_out_size=${N} \
                    training.max_iters=${DISTILLATION_ITERS} \
+                   training.batch_size=${BATCH_SIZE} \
                    wandb_log=${WANDB_LOG} \
                    experiment.wandb_project=${WANDB_PROJECT} \
                    experiment.wandb_entity=${WANDB_ENTITY} \
