@@ -16,8 +16,8 @@ num_latents: 128      # ControllableGPT codebook size
 batch_size: 2048
 seeds: [0, 1, 2, 3, 4]
 tasks: [qed, logp, sa, mw, tpsa]
-pretrain_iters: 100000      # max_iters for base GPT pretraining
-controllable_iters: 80_000   # max_iters for ControllableGPT pretraining
+pretrain_iters: 20_000       # max_iters for base GPT pretraining
+controllable_iters: 20_000   # max_iters for ControllableGPT pretraining
 distillation_iters: 20_000   # max_iters for policy distillation
 rl_budget: 250000000        # total env steps for PPO finetuning
 

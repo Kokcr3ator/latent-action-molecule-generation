@@ -121,7 +121,7 @@ class PretrainBaseCfg:
     resume: bool = False
     tokenizer: TokenizerCfg = field(default_factory=TokenizerCfg)
     model: GPTModelCfg = field(default_factory=GPTModelCfg)
-    training: TrainingCfg = field(default_factory=TrainingCfg)
+    training: TrainingCfg = field(default_factory=lambda: TrainingCfg(max_iters=20_000))
     optim: OptimCfg = field(default_factory=OptimCfg)
     wandb: WandbCfg = field(default_factory=lambda: WandbCfg(group="pretrain_base"))
 
@@ -135,7 +135,7 @@ class PretrainControllableCfg:
     resume: bool = False
     tokenizer: TokenizerCfg = field(default_factory=TokenizerCfg)
     model: ControllableGPTModelCfg = field(default_factory=ControllableGPTModelCfg)
-    training: TrainingCfg = field(default_factory=lambda: TrainingCfg(max_iters=80_000))
+    training: TrainingCfg = field(default_factory=lambda: TrainingCfg(max_iters=20_000))
     optim: OptimCfg = field(default_factory=OptimCfg)
     wandb: WandbCfg = field(default_factory=lambda: WandbCfg(group="pretrain_controllable"))
 
