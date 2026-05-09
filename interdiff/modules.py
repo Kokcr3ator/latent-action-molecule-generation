@@ -380,18 +380,21 @@ class VectorQuantizer(SerialisableModule):
         entropy_weight: Weight for entropy regularization loss.
         vq_beta: Weight for commitment loss.
     """
-    def __init__(self, 
+    def __init__(self,
                  latent_action_dim: int,
                  num_latents: int,
                  dropout: float,
                  entropy_weight: float,
-                 vq_beta: float):
+                 vq_beta: float,
+                 norm_mode: str = "none"):
         super().__init__()
         self.latent_action_dim = latent_action_dim
         self.num_latents = num_latents
         self.dropout = nn.Dropout(dropout)
         self.entropy_weight = entropy_weight
         self.vq_beta = vq_beta
+        assert norm_mode in ("none", "loss", "codebook", "step"), f"Unknown norm_mode: {norm_mode}"
+        self.norm_mode = norm_mode
 
         # Lecun's initialization for codebook
         bound = (3 / self.latent_action_dim) ** 0.5
@@ -436,13 +439,26 @@ class VectorQuantizer(SerialisableModule):
 
         # --- Find closest codebook entries ---
         indices = torch.argmin(distance, dim=-1)
-        z = self.codebook[indices]  # a in excalidraw
+        z = self.codebook[indices]
 
         # --- STE ---
         z_q = x + (z - x).detach()
 
-        commit_loss = F.mse_loss(x, z.detach(), reduction="mean")
-        q_loss = F.mse_loss(z, x.detach(), reduction="mean")
+        # --- Losses (strategy selected by norm_mode) ---
+        if self.norm_mode == "loss":
+            # Normalize both encoder output and codebook entry before MSE
+            x_l2 = F.normalize(x, dim=-1)
+            z_l2 = F.normalize(z, dim=-1)
+            commit_loss = F.mse_loss(x_l2, z_l2.detach(), reduction="mean")
+            q_loss = F.mse_loss(z_l2, x_l2.detach(), reduction="mean")
+        elif self.norm_mode in ("codebook", "step"):
+            # Use unit-norm codebook entries as targets; encoder output unnormalized
+            z_l2 = F.normalize(z, dim=-1)
+            commit_loss = F.mse_loss(x, z_l2.detach(), reduction="mean")
+            q_loss = F.mse_loss(z_l2, x.detach(), reduction="mean")
+        else:  # "none"
+            commit_loss = F.mse_loss(x, z.detach(), reduction="mean")
+            q_loss = F.mse_loss(z, x.detach(), reduction="mean")
 
         entropy = self.entropy_from_indices(indices)
         entropy_loss = -entropy  # Negative entropy to encourage uniform usage

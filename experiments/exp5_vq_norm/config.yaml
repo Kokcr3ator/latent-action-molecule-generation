@@ -1,0 +1,28 @@
+# =============================================================================
+# Experiment 5 — VQ normalisation ablation: how does codebook scaling strategy
+# affect ControllableGPT performance across codebook sizes?
+#
+# Three strategies tested against the unnormalised baseline (exp3):
+#   - loss:     normalise encoder output and codebook entry before MSE
+#   - codebook: use unit-norm codebook entries as targets; encoder unnormalised
+#   - step:     project codebook to unit sphere after each optimiser step
+# =============================================================================
+
+# --- Paths -------------------------------------------------------------------
+data_dir: interdiff/data/zinc/zinc.txt
+ckpt_root: ckpts
+
+# --- Model -------------------------------------------------------------------
+vocab_size: 2048
+num_latents_list: [128, 512, 1024, 2048]
+norm_modes: [loss, codebook, step]
+
+# --- Training ----------------------------------------------------------------
+batch_size: 2048
+seeds: [0, 1, 2]
+controllable_iters: 20_000
+
+# --- Logging -----------------------------------------------------------------
+wandb_project: interdiff
+wandb_entity: latent-action-interdiff
+wandb_group: exp5_vq_norm

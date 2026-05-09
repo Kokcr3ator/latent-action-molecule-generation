@@ -96,6 +96,7 @@ class ControllableGPTModelCfg:
     num_latents: int = 128
     entropy_weight: float = 0.01
     vq_beta: float = 0.25
+    norm_mode: str = "none"
 
 
 @dataclass
@@ -164,7 +165,9 @@ def _run_name(cfg) -> str:
     if isinstance(cfg, PretrainBaseCfg):
         return f"pretrain_base_vocab{tok.vocab_size}_seed{cfg.seed}"
     if isinstance(cfg, PretrainControllableCfg):
-        return f"pretrain_controllable_vocab{tok.vocab_size}_nlatent{cfg.model.num_latents}_seed{cfg.seed}"
+        norm = cfg.model.norm_mode
+        norm_suffix = f"_norm{norm}" if norm != "none" else ""
+        return f"pretrain_controllable_vocab{tok.vocab_size}_nlatent{cfg.model.num_latents}{norm_suffix}_seed{cfg.seed}"
     if isinstance(cfg, PolicyDistillCfg):
         return f"policydistillation_nlatents{cfg.model.num_latents}_vocab{tok.vocab_size}_seed{cfg.seed}"
     raise ValueError(f"Unknown config type: {type(cfg)}")
@@ -236,7 +239,7 @@ def main() -> None:
             lm_head_out_size=tok.vocab_size,
             pad_token_id=tok.pad_token_id, bos_token_id=tok.bos_token_id, eos_token_id=tok.eos_token_id,
             latent_action_dim=m.latent_action_dim, num_latents=m.num_latents,
-            entropy_weight=m.entropy_weight, vq_beta=m.vq_beta,
+            entropy_weight=m.entropy_weight, vq_beta=m.vq_beta, norm_mode=m.norm_mode,
         )
     elif isinstance(cfg, PolicyDistillCfg):
         model = PolicyNetwork(

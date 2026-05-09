@@ -181,6 +181,9 @@ class ControllableGPTTrainer(TrainerBase):
                 self.optimizer.zero_grad(set_to_none=True)
                 if self.scheduler is not None:
                     self.scheduler.step()
+                orig = getattr(self.model, '_orig_mod', self.model)
+                if orig.lam.vq.norm_mode == "step":
+                    orig.lam.vq._normalize_codebook()
 
             log_dict = {}
 
