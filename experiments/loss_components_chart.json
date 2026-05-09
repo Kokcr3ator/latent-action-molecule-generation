@@ -1,0 +1,83 @@
+{
+  "query": "query { runSets(runSets: \"${runSets}\", limit: 500) { id name history(keys: [\"train/lam_ce_loss\", \"train/dynamics_loss\", \"train/vq_q_loss\", \"train/vq_commit_loss\", \"train/vq_entropy_loss\", \"train/vq_norm_penalty\"], samples: 500) } }",
+  "spec": {
+    "$schema": "https://vega.github.io/schema/vega-lite/v4.json",
+    "description": "Stacked area chart of all loss components",
+    "data": {
+      "name": "runSets"
+    },
+    "title": "Loss components",
+    "transform": [
+      {
+        "fold": [
+          "train/lam_ce_loss",
+          "train/dynamics_loss",
+          "train/vq_q_loss",
+          "train/vq_commit_loss",
+          "train/vq_entropy_loss",
+          "train/vq_norm_penalty"
+        ],
+        "as": ["component", "value"]
+      },
+      {
+        "filter": "datum.value != null"
+      }
+    ],
+    "layer": [
+      {
+        "mark": "area",
+        "encoding": {
+          "x": {
+            "field": "_step",
+            "type": "quantitative",
+            "title": "step"
+          },
+          "y": {
+            "field": "value",
+            "type": "quantitative",
+            "stack": true,
+            "title": "loss"
+          },
+          "color": {
+            "field": "component",
+            "type": "nominal",
+            "title": "component",
+            "scale": {
+              "domain": [
+                "train/lam_ce_loss",
+                "train/dynamics_loss",
+                "train/vq_q_loss",
+                "train/vq_commit_loss",
+                "train/vq_entropy_loss",
+                "train/vq_norm_penalty"
+              ],
+              "range": [
+                "#4c78a8",
+                "#f58518",
+                "#54a24b",
+                "#e45756",
+                "#9b49b6",
+                "#bab0ac"
+              ]
+            }
+          },
+          "opacity": {
+            "value": 0.75
+          },
+          "tooltip": [
+            {"field": "_step", "type": "quantitative", "title": "step"},
+            {"field": "name", "type": "nominal", "title": "run"},
+            {"field": "component", "type": "nominal"},
+            {"field": "value", "type": "quantitative", "format": ".4f"}
+          ]
+        },
+        "selection": {
+          "grid": {
+            "type": "interval",
+            "bind": "scales"
+          }
+        }
+      }
+    ]
+  }
+}

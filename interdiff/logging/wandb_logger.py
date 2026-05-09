@@ -1,3 +1,4 @@
+import os
 from typing import List, Optional
 
 import wandb
@@ -5,8 +6,10 @@ from interdiff.logging.logger import Logger
 
 
 class WandbLogger(Logger):
-    def __init__(self, project: str, name: str, group: str, entity: Optional[str] = None):
-        wandb.init(project=project, name=name, group=group, entity=entity)
+    def __init__(self, project: str, name: str, group: str, entity: Optional[str] = None, dir: Optional[str] = None):
+        if dir:
+            os.makedirs(dir, exist_ok=True)
+        wandb.init(project=project, name=name, group=group, entity=entity, dir=dir or None)
 
     def log(self, metrics: dict):
         wandb.log(metrics)

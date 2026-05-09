@@ -70,6 +70,7 @@ class WandbCfg:
     project: str = "interdiff"
     entity: str = "latent-action-interdiff"
     group: str = ""
+    dir: str = ""
 
 
 # ---------------------------------------------------------------------------
@@ -119,7 +120,7 @@ class PretrainBaseCfg:
     """Pretrain a base autoregressive GPT on SMILES."""
     seed: int = 42
     data_smiles: str = "interdiff/data/zinc/zinc.txt"
-    ckpt_root: str = "ckpts"
+    ckpt_root: str = "/scratch/uceeepi/interdiff/ckpts"
     resume: bool = False
     tokenizer: TokenizerCfg = field(default_factory=TokenizerCfg)
     model: GPTModelCfg = field(default_factory=GPTModelCfg)
@@ -133,7 +134,7 @@ class PretrainControllableCfg:
     """Pretrain a ControllableGPT with VQ latent action model."""
     seed: int = 42
     data_smiles: str = "interdiff/data/zinc/zinc.txt"
-    ckpt_root: str = "ckpts"
+    ckpt_root: str = "/scratch/uceeepi/interdiff/ckpts"
     resume: bool = False
     tokenizer: TokenizerCfg = field(default_factory=TokenizerCfg)
     model: ControllableGPTModelCfg = field(default_factory=ControllableGPTModelCfg)
@@ -148,7 +149,7 @@ class PolicyDistillCfg:
     controllable_gpt_path: str  # required — no default
     seed: int = 42
     data_smiles: str = "interdiff/data/zinc/zinc.txt"
-    ckpt_root: str = "ckpts"
+    ckpt_root: str = "/scratch/uceeepi/interdiff/ckpts"
     resume: bool = False
     tokenizer: TokenizerCfg = field(default_factory=TokenizerCfg)
     model: PolicyNetworkModelCfg = field(default_factory=PolicyNetworkModelCfg)
@@ -260,6 +261,7 @@ def main() -> None:
 
     logger = WandbLogger(
         project=cfg.wandb.project, entity=cfg.wandb.entity, name=run_name, group=cfg.wandb.group,
+        dir=cfg.wandb.dir,
     )
 
     log_run_setup(logger, asdict(cfg), model=model)

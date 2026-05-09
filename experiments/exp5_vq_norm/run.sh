@@ -77,6 +77,7 @@ BATCH_SIZE=$(_cfg batch_size)
 WANDB_GROUP=$(_cfg wandb_group)
 WANDB_PROJECT=$(_cfg wandb_project)
 WANDB_ENTITY=$(_cfg wandb_entity)
+WANDB_DIR=$(_cfg wandb_dir)
 
 for S in "${SEEDS[@]}"; do
   echo "========== Seed ${S} =========="
@@ -96,7 +97,8 @@ for S in "${SEEDS[@]}"; do
           --training.batch-size ${BATCH_SIZE} \
           --wandb.project ${WANDB_PROJECT} \
           --wandb.entity ${WANDB_ENTITY} \
-          --wandb.group ${WANDB_GROUP}
+          --wandb.group ${WANDB_GROUP} \
+          --wandb.dir ${WANDB_DIR}
       fi
     done
   done
