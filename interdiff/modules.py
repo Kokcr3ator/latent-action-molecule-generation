@@ -386,15 +386,17 @@ class VectorQuantizer(SerialisableModule):
                  dropout: float,
                  entropy_weight: float,
                  vq_beta: float,
-                 norm_mode: str = "none"):
+                 norm_mode: str = "none",
+                 norm_penalty_weight: float = 1.0):
         super().__init__()
         self.latent_action_dim = latent_action_dim
         self.num_latents = num_latents
         self.dropout = nn.Dropout(dropout)
         self.entropy_weight = entropy_weight
         self.vq_beta = vq_beta
-        assert norm_mode in ("none", "loss", "codebook", "step"), f"Unknown norm_mode: {norm_mode}"
+        assert norm_mode in ("none", "loss", "codebook", "step", "norm_penalty"), f"Unknown norm_mode: {norm_mode}"
         self.norm_mode = norm_mode
+        self.norm_penalty_weight = norm_penalty_weight
 
         # Lecun's initialization for codebook
         bound = (3 / self.latent_action_dim) ** 0.5
@@ -463,14 +465,20 @@ class VectorQuantizer(SerialisableModule):
         entropy = self.entropy_from_indices(indices)
         entropy_loss = -entropy  # Negative entropy to encourage uniform usage
 
+        # Soft L2 penalty pulling codebook norms toward 1
+        norm_penalty = (self.codebook.norm(dim=-1) - 1).pow(2).mean() if self.norm_mode == "norm_penalty" else torch.tensor(0.0)
+
         loss = q_loss + self.vq_beta * commit_loss + self.entropy_weight * entropy_loss
-        
+        if self.norm_mode == "norm_penalty":
+            loss = loss + self.norm_penalty_weight * norm_penalty
+
         vq_loss_dict = {
             'vq_loss': loss,
             'q_loss': q_loss,
             'commit_loss': commit_loss,
             'entropy_loss': entropy_loss,
             'entropy': entropy,
+            'vq_norm_penalty': norm_penalty,
             'indices': indices,
         }
         return z_q, vq_loss_dict, indices

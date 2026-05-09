@@ -112,6 +112,7 @@ class ControllableGPTTrainer(TrainerBase):
                 'vq_commit_loss': vq_loss_dict['commit_loss'],
                 'vq_entropy_loss': vq_loss_dict['entropy_loss'],
                 'vq_entropy': vq_loss_dict['entropy'],
+                'vq_norm_penalty': vq_loss_dict['vq_norm_penalty'],
                 'vq_indices': vq_loss_dict['indices'],
             }
 
@@ -145,6 +146,7 @@ class ControllableGPTTrainer(TrainerBase):
             'vq_commit_loss': 0.0,
             'vq_entropy_loss': 0.0,
             'vq_entropy': 0.0,
+            'vq_norm_penalty': 0.0,
         }
         running_indices = []  # accumulate over log_interval for utilization
 
@@ -244,6 +246,7 @@ class ControllableGPTTrainer(TrainerBase):
             'vq_commit_loss': 0.0,
             'vq_entropy_loss': 0.0,
             'vq_entropy': 0.0,
+            'vq_norm_penalty': 0.0,
         }
         
         all_indices = []

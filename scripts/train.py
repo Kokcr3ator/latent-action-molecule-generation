@@ -97,6 +97,7 @@ class ControllableGPTModelCfg:
     entropy_weight: float = 0.01
     vq_beta: float = 0.25
     norm_mode: str = "none"
+    norm_penalty_weight: float = 1.0
 
 
 @dataclass
@@ -239,7 +240,8 @@ def main() -> None:
             lm_head_out_size=tok.vocab_size,
             pad_token_id=tok.pad_token_id, bos_token_id=tok.bos_token_id, eos_token_id=tok.eos_token_id,
             latent_action_dim=m.latent_action_dim, num_latents=m.num_latents,
-            entropy_weight=m.entropy_weight, vq_beta=m.vq_beta, norm_mode=m.norm_mode,
+            entropy_weight=m.entropy_weight, vq_beta=m.vq_beta,
+            norm_mode=m.norm_mode, norm_penalty_weight=m.norm_penalty_weight,
         )
     elif isinstance(cfg, PolicyDistillCfg):
         model = PolicyNetwork(

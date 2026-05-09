@@ -2,9 +2,9 @@
 # =============================================================================
 # Experiment 5 — VQ normalisation ablation
 #
-# Sweeps three codebook normalisation strategies (loss, codebook, step) across
-# codebook sizes [128, 512, 1024, 2048] and seeds [0, 1, 2].
-# Total runs: 3 strategies × 4 codebook sizes × 3 seeds = 36
+# Sweeps four codebook normalisation strategies (loss, codebook, step, norm_penalty)
+# across codebook sizes and seeds.
+# Total runs: 4 strategies × 4 codebook sizes × 3 seeds = 48
 # =============================================================================
 set -euo pipefail
 

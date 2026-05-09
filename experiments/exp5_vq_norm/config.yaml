@@ -14,8 +14,8 @@ ckpt_root: ckpts
 
 # --- Model -------------------------------------------------------------------
 vocab_size: 2048
-num_latents_list: [128, 512, 1024, 2048]
-norm_modes: [loss, codebook, step]
+num_latents_list: [1024, 2048, 4096, 8192] # subset of exp3 codebook sizes to sweep
+norm_modes: [loss, codebook, step, norm_penalty]
 
 # --- Training ----------------------------------------------------------------
 batch_size: 2048

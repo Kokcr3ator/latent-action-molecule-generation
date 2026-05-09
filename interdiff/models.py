@@ -272,7 +272,8 @@ class LatentActionModel(SerialisableModule):
                  num_latents: int = 512,
                  entropy_weight: float = 0.01,
                  vq_beta: float = 0.25,
-                 norm_mode: str = "none"):
+                 norm_mode: str = "none",
+                 norm_penalty_weight: float = 1.0):
 
         # encoder is future dependent for learning and past dependent for finetuning
         # after policy distillation
@@ -309,8 +310,9 @@ class LatentActionModel(SerialisableModule):
         for k, v in vq_conf.__dict__.items():
             setattr(self, k, v)
         self.norm_mode = norm_mode
+        self.norm_penalty_weight = norm_penalty_weight
 
-        self.vq = VectorQuantizer(**kwargs_vq, norm_mode=norm_mode)
+        self.vq = VectorQuantizer(**kwargs_vq, norm_mode=norm_mode, norm_penalty_weight=norm_penalty_weight)
 
         # Encoder and Decoder
         self.encoder = GPT(**kwargs_gpt)
@@ -499,7 +501,8 @@ class ControllableGPT(SerialisableModule):
                  num_latents: int = 512,
                  entropy_weight: float = 0.01,
                  vq_beta: float = 0.25,
-                 norm_mode: str = "none"):
+                 norm_mode: str = "none",
+                 norm_penalty_weight: float = 1.0):
 
         super().__init__()
         lam_config = LatentActionModelConfig(vocab_size=vocab_size,
@@ -517,7 +520,8 @@ class ControllableGPT(SerialisableModule):
                                      num_latents=num_latents,
                                      entropy_weight=entropy_weight,
                                      vq_beta=vq_beta,
-                                     norm_mode=norm_mode)
+                                     norm_mode=norm_mode,
+                                     norm_penalty_weight=norm_penalty_weight)
 
         self.lam = LatentActionModel(**lam_config.__dict__)
 
