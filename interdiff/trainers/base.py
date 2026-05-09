@@ -64,7 +64,7 @@ class TrainerBase(ABC):
         self.gradient_accumulation_steps = train_cfg.gradient_accumulation_steps
         self.always_save_checkpoint = train_cfg.always_save_checkpoint
         self.warmup_iters = train_cfg.warmup_iters
-        self.ckpt_path = os.path.join('ckpts', train_cfg.ckpt_path)
+        self.ckpt_path = train_cfg.ckpt_path
 
         # some models may not need this parameter in case set to 0
         try:
