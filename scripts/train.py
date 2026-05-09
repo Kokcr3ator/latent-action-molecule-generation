@@ -296,6 +296,7 @@ def main() -> None:
 
     trainer.fit(loaders.train_loader, loaders.val_loader)
 
+    os.makedirs(ckpt_path, exist_ok=True)
     sentinel = os.path.join(ckpt_path, "done")
     open(sentinel, "w").close()
     log.info("Training complete. Sentinel written to %s", sentinel)
