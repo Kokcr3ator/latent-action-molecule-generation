@@ -441,10 +441,8 @@ class VectorQuantizer(SerialisableModule):
         # --- STE ---
         z_q = x + (z - x).detach()
 
-        x_l2 = F.normalize(x, dim=-1)
-        z_l2 = F.normalize(z, dim=-1)
-        commit_loss = F.mse_loss(x_l2, z_l2.detach(), reduction="mean")
-        q_loss = F.mse_loss(z_l2, x_l2.detach(), reduction="mean")
+        commit_loss = F.mse_loss(x, z.detach(), reduction="mean")
+        q_loss = F.mse_loss(z, x.detach(), reduction="mean")
 
         entropy = self.entropy_from_indices(indices)
         entropy_loss = -entropy  # Negative entropy to encourage uniform usage
