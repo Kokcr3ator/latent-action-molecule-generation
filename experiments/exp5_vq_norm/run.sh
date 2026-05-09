@@ -5,6 +5,8 @@
 # Sweeps four codebook normalisation strategies (loss, codebook, step, norm_penalty)
 # across codebook sizes and seeds.
 # Total runs: 4 strategies × 4 codebook sizes × 3 seeds = 48
+#
+# If 2+ GPUs are available, runs two jobs in parallel (one per GPU).
 # =============================================================================
 set -euo pipefail
 
@@ -23,6 +25,38 @@ _done() {
   [ -f "$1/done" ] || return 1
   echo "    skipping — $1/done sentinel exists"
 }
+
+# ---------------------------------------------------------------------------
+# GPU parallelism: fill one slot per GPU, wait when all slots are full
+# ---------------------------------------------------------------------------
+NUM_GPUS=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | wc -l || echo 1)
+echo "Detected ${NUM_GPUS} GPU(s)"
+
+_GPU_SLOT=0
+_PIDS=()
+
+_launch() {
+  if [ "${NUM_GPUS}" -ge 2 ]; then
+    CUDA_VISIBLE_DEVICES=${_GPU_SLOT} "$@" &
+    _PIDS+=($!)
+    _GPU_SLOT=$(( (_GPU_SLOT + 1) % NUM_GPUS ))
+    if [ ${#_PIDS[@]} -ge "${NUM_GPUS}" ]; then
+      wait "${_PIDS[@]}"
+      _PIDS=()
+    fi
+  else
+    "$@"
+  fi
+}
+
+_flush() {
+  if [ ${#_PIDS[@]} -gt 0 ]; then
+    wait "${_PIDS[@]}"
+    _PIDS=()
+  fi
+}
+
+# ---------------------------------------------------------------------------
 
 DATA_DIR=$(_cfg data_dir)
 CKPT_ROOT=$(_cfg ckpt_root)
@@ -44,7 +78,7 @@ for S in "${SEEDS[@]}"; do
       echo "    num_latents=${N}"
       CKPT="${CKPT_ROOT}/pretrain_controllable_vocab${VOCAB_SIZE}_nlatent${N}_norm${NORM}_seed${S}"
       if ! _done "${CKPT}"; then
-        python3 -m scripts.train pretrain-controllable \
+        _launch python3 -m scripts.train pretrain-controllable \
           --seed ${S} \
           --data-smiles ${DATA_DIR} \
           --tokenizer.vocab-size ${VOCAB_SIZE} \
@@ -60,4 +94,5 @@ for S in "${SEEDS[@]}"; do
   done
 done
 
+_flush
 echo "===== Experiment 5 complete ====="
