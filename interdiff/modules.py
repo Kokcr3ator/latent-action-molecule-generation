@@ -94,7 +94,9 @@ class LatentActionModelConfig:
     latent_action_dim: int = 64
     num_latents: int = 512
     entropy_weight: float = 0.01
-    vq_beta: float = 0.25   
+    vq_beta: float = 0.25
+    norm_mode: str = "none"
+    norm_penalty_weight: float = 1.0
 
 class SerialisableModule(nn.Module):
     """Base class for serializable PyTorch modules.
