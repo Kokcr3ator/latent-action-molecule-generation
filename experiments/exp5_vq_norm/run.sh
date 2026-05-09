@@ -27,17 +27,25 @@ _done() {
 }
 
 # ---------------------------------------------------------------------------
-# GPU parallelism: fill one slot per GPU, wait when all slots are full
+# GPU parallelism: fill one slot per GPU, wait when all slots are full.
+# Respects CUDA_VISIBLE_DEVICES if set; otherwise detects all GPUs via nvidia-smi.
 # ---------------------------------------------------------------------------
-NUM_GPUS=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | wc -l || echo 1)
-echo "Detected ${NUM_GPUS} GPU(s)"
+if [ -n "${CUDA_VISIBLE_DEVICES:-}" ]; then
+  IFS=',' read -ra GPU_IDS <<< "${CUDA_VISIBLE_DEVICES}"
+else
+  NUM_DETECTED=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | wc -l || echo 1)
+  GPU_IDS=()
+  for i in $(seq 0 $((NUM_DETECTED - 1))); do GPU_IDS+=("$i"); done
+fi
+NUM_GPUS=${#GPU_IDS[@]}
+echo "Using ${NUM_GPUS} GPU(s): ${GPU_IDS[*]}"
 
 _GPU_SLOT=0
 _PIDS=()
 
 _launch() {
   if [ "${NUM_GPUS}" -ge 2 ]; then
-    CUDA_VISIBLE_DEVICES=${_GPU_SLOT} "$@" &
+    CUDA_VISIBLE_DEVICES=${GPU_IDS[${_GPU_SLOT}]} "$@" &
     _PIDS+=($!)
     _GPU_SLOT=$(( (_GPU_SLOT + 1) % NUM_GPUS ))
     if [ ${#_PIDS[@]} -ge "${NUM_GPUS}" ]; then
