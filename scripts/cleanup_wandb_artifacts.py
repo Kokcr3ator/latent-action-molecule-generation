@@ -10,6 +10,10 @@ import argparse
 import wandb
 
 
+def _version_int(artifact) -> int:
+    return int(artifact.version.lstrip("v"))
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--entity", required=True)
@@ -21,13 +25,13 @@ def main():
 
     api = wandb.Api()
 
-    # Collect artifact names produced by runs in the target group
+    # Collect artifact base-names produced by runs in the target group
     runs = api.runs(f"{args.entity}/{args.project}", filters={"group": args.group})
     artifact_names = set()
     for run in runs:
         for artifact in run.logged_artifacts():
             if artifact.type == args.type:
-                artifact_names.add(artifact.name.rsplit(":", 1)[0])  # strip :vN suffix
+                artifact_names.add(artifact.name.rsplit(":", 1)[0])
 
     if not artifact_names:
         print(f"No {args.type} artifacts found for group '{args.group}'.")
@@ -37,8 +41,10 @@ def main():
 
     total_deleted = 0
     for name in sorted(artifact_names):
-        collection = api.artifact_versions(args.type, f"{args.entity}/{args.project}/{name}")
-        versions = sorted(collection, key=lambda a: a.version)
+        versions = sorted(
+            api.artifact_versions(args.type, f"{args.entity}/{args.project}/{name}"),
+            key=_version_int,
+        )
         stale = versions[:-1]  # keep only the latest
         for artifact in stale:
             size_mb = artifact.size / 1e6
