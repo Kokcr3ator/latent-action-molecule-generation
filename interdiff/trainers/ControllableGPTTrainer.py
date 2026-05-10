@@ -220,8 +220,6 @@ class ControllableGPTTrainer(TrainerBase):
                 if self.always_save_checkpoint or improved:
                     ckpt_path = os.path.join(self.ckpt_path, "best.pt")
                     self.save_checkpoint(ckpt_path)
-                    if self.logger and improved:
-                        self.logger.log_artifact(ckpt_path, name=os.path.basename(self.ckpt_path))
 
             if log_dict:
                 if self.logger:

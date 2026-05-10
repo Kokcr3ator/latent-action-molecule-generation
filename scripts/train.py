@@ -310,6 +310,10 @@ def main() -> None:
     open(sentinel, "w").close()
     log.info("Training complete. Sentinel written to %s", sentinel)
 
+    best_ckpt = os.path.join(ckpt_path, "best.pt")
+    if logger and os.path.exists(best_ckpt):
+        logger.log_artifact(best_ckpt, name=os.path.basename(ckpt_path))
+
     if logger:
         logger.finalize()
 
