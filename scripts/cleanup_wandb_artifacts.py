@@ -14,6 +14,20 @@ def _version_int(artifact) -> int:
     return int(artifact.version.lstrip("v"))
 
 
+def _delete(artifact, dry_run: bool) -> bool:
+    """Strip aliases then delete. Returns True on success."""
+    try:
+        if not dry_run:
+            # Aliases block deletion even with delete_aliases=True in some SDK versions
+            artifact.aliases = []
+            artifact.save()
+            artifact.delete(delete_aliases=True)
+        return True
+    except Exception as e:
+        print(f"  WARNING: could not delete {artifact.name}: {e}")
+        return False
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--entity", required=True)
@@ -39,7 +53,7 @@ def main():
 
     print(f"Found {len(artifact_names)} artifact collection(s) in group '{args.group}'.")
 
-    total_deleted = 0
+    total_deleted = total_failed = 0
     for name in sorted(artifact_names):
         versions = sorted(
             api.artifact_versions(args.type, f"{args.entity}/{args.project}/{name}"),
@@ -48,12 +62,16 @@ def main():
         stale = versions[:-1]  # keep only the latest
         for artifact in stale:
             size_mb = artifact.size / 1e6
-            print(f"{'[dry-run] ' if args.dry_run else ''}deleting {artifact.name} ({size_mb:.1f} MB)")
-            if not args.dry_run:
-                artifact.delete(delete_aliases=True)
-            total_deleted += 1
+            tag = "[dry-run] " if args.dry_run else ""
+            print(f"{tag}deleting {artifact.name} (aliases={artifact.aliases}, {size_mb:.1f} MB)")
+            ok = _delete(artifact, args.dry_run)
+            if ok:
+                total_deleted += 1
+            else:
+                total_failed += 1
 
-    print(f"\n{'Would delete' if args.dry_run else 'Deleted'} {total_deleted} artifact version(s).")
+    action = "Would delete" if args.dry_run else "Deleted"
+    print(f"\n{action} {total_deleted} artifact version(s). Failed: {total_failed}.")
 
 
 if __name__ == "__main__":
