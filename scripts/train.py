@@ -46,6 +46,7 @@ class TokenizerCfg:
 class TrainingCfg:
     max_iters: int = 100_000
     batch_size: int = 2_048
+    gradient_accumulation_steps: int = 1
     grad_clip: float = 1.0
     warmup_iters: int = 1_000
     eval_interval: int = 200
@@ -180,6 +181,7 @@ def _build_train_config(cfg, ckpt_path: str, tok_dir: str) -> TrainConfig:
     return TrainConfig(
         max_iters=t.max_iters,
         batch_size=t.batch_size,
+        gradient_accumulation_steps=t.gradient_accumulation_steps,
         grad_clip=t.grad_clip,
         warmup_iters=t.warmup_iters,
         eval_interval=t.eval_interval,
