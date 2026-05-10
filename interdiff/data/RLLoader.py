@@ -66,7 +66,7 @@ class FinetuneBaseLoader(RLLoader):
     def load_pretrained_model(self, cfg, device) -> GPT:
         """Load a pretrained GPT model from checkpoint or instantiate from scratch."""
 
-        init_from = cfg.ckpt.get("init_from", "scratch")
+        init_from = getattr(cfg.ckpt, "init_from", "scratch")
 
         if init_from == "resume":
             ckpt_dir = Path(cfg.ckpt.path)
@@ -138,7 +138,7 @@ class FinetuneControlable(RLLoader):
     def load_pretrained_model(self, cfg, device) -> PolicyNetwork:
         """Load a pretrained PolicyNetwork model from checkpoint or instantiate from scratch."""
 
-        init_from = cfg.ckpt.get("init_from", "scratch")
+        init_from = getattr(cfg.ckpt, "init_from", "scratch")
 
         if init_from == "resume":
             ckpt_dir = Path(cfg.ckpt.path)
