@@ -116,12 +116,11 @@ class ControllableGPTTrainer(TrainerBase):
                 'vq_indices': vq_loss_dict['indices'],
             }
 
-    def _codebook_stats(self, indices: torch.Tensor) -> Dict[str, float]:
-        """Compute codebook health metrics: entry norms and utilization."""
+    def _codebook_stats(self, counts: torch.Tensor) -> Dict[str, float]:
+        """Compute codebook health metrics from a bincount of index usage."""
         num_latents = self.model.lam.vq.num_latents
-        norms = self.model.lam.vq.codebook.data.float().norm(dim=-1)
-        flat = indices.view(-1)
-        utilization = flat.unique().numel() / num_latents
+        norms = getattr(self.model, '_orig_mod', self.model).lam.vq.codebook.data.float().norm(dim=-1)
+        utilization = (counts > 0).sum().item() / num_latents
         return {
             'codebook_norm_mean': norms.mean().item(),
             'codebook_norm_max': norms.max().item(),
@@ -148,7 +147,8 @@ class ControllableGPTTrainer(TrainerBase):
             'vq_entropy': 0.0,
             'vq_norm_penalty': 0.0,
         }
-        running_indices = []  # accumulate over log_interval for utilization
+        num_latents = getattr(self.model, '_orig_mod', self.model).lam.vq.num_latents
+        running_counts = torch.zeros(num_latents, dtype=torch.long)
 
         while self.state.step < self.max_iters:
             with torch.amp.autocast(device_type=self.device, dtype=self.mixed_dtype, enabled=self.mixed_dtype != torch.float32):
@@ -166,7 +166,7 @@ class ControllableGPTTrainer(TrainerBase):
             # Accumulate all metrics
             for key in running_metrics:
                 running_metrics[key] += float(loss_dict[key].detach().cpu()) / self.gradient_accumulation_steps
-            running_indices.append(loss_dict['vq_indices'].detach().cpu())
+            running_counts += torch.bincount(loss_dict['vq_indices'].detach().cpu().view(-1), minlength=num_latents)
 
             if (self.state.step + 1) % self.gradient_accumulation_steps == 0:
                 if self.grad_clip and self.grad_clip > 0:
@@ -197,11 +197,10 @@ class ControllableGPTTrainer(TrainerBase):
                 for key in running_metrics:
                     running_metrics[key] = 0.0
 
-                with torch.no_grad():
-                    cb_stats = self._codebook_stats(torch.cat(running_indices))
+                cb_stats = self._codebook_stats(running_counts)
                 for k, v in cb_stats.items():
                     log_dict[f"train/{k}"] = v
-                running_indices.clear()
+                running_counts.zero_()
 
                 print(
                     f"step {self.state.step:6d} | "
@@ -249,17 +248,16 @@ class ControllableGPTTrainer(TrainerBase):
             'vq_norm_penalty': 0.0,
         }
         
-        all_indices = []
+        num_latents = getattr(self.model, '_orig_mod', self.model).lam.vq.num_latents
+        all_counts = torch.zeros(num_latents, dtype=torch.long)
 
         for i, batch in zip(range(self.eval_iters), val_dataloader):
             with torch.amp.autocast(device_type=self.device, dtype=self.mixed_dtype, enabled=self.mixed_dtype != torch.float32):
                 loss_dict = self.forward_loss_with_components(batch)
-            
+
             for key in accumulated_metrics:
                 accumulated_metrics[key] += float(loss_dict[key].detach().cpu())
-            all_indices.append(loss_dict['vq_indices'].detach().cpu())
-        
-        all_indices = torch.cat(all_indices).view(-1)
+            all_counts += torch.bincount(loss_dict['vq_indices'].detach().cpu().view(-1), minlength=num_latents)
 
         self.model.train()
 
@@ -277,14 +275,12 @@ class ControllableGPTTrainer(TrainerBase):
             'val/vq_entropy': accumulated_metrics['vq_entropy'] / num_batches,
         }
 
-        cb_stats = self._codebook_stats(all_indices)
+        cb_stats = self._codebook_stats(all_counts)
         for k, v in cb_stats.items():
             result[f"val/{k}"] = v
 
         if self.logger is not None and wandb is not None:
-            num_latents = self.model.lam.vq.num_latents
-            counts = torch.bincount(all_indices, minlength=num_latents).float()
-            probs = counts / counts.sum()
+            probs = all_counts.float() / all_counts.sum()
             table = wandb.Table(
                 columns=["action", "probability"],
                 data=[[i, p.item()] for i, p in enumerate(probs)],
