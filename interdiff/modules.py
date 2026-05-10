@@ -410,9 +410,11 @@ class VectorQuantizer(SerialisableModule):
     def _normalize_codebook(self):
         """
         Normalize the codebook embeddings to have unit norm.
+        Uses copy_ to modify storage in-place, preserving the tensor identity
+        that torch.compile caches.
         """
         with torch.no_grad():
-            self.codebook.data = F.normalize(self.codebook.data, dim=-1)
+            self.codebook.data.copy_(F.normalize(self.codebook.data, dim=-1))
 
     def forward(
         self, x: torch.Tensor
