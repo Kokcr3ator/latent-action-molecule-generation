@@ -9,7 +9,7 @@
 # ControllableGPT only — no baseline.  Sweeps codebook sizes both smaller and
 # larger than the token vocabulary to characterise the scaling behaviour of
 # the latent action model.
-# Runs the full pipeline for each seed before moving to the next.
+# Runs all pretrain seeds, then all distill seeds, then all RL seeds.
 # Total runs: (1+1+5) × |num_latents| × |seeds| = 7 × 6 × 5 = 210
 # =============================================================================
 set -euo pipefail
@@ -46,11 +46,10 @@ WANDB_PROJECT=$(_cfg wandb_project)
 WANDB_ENTITY=$(_cfg wandb_entity)
 WANDB_DIR=$(_cfg wandb_dir)
 
+# -----------------------------------------------------------------------------
+echo "===== [1/3] Pretrain ControllableGPT — all seeds × all codebook sizes ====="
 for S in "${SEEDS[@]}"; do
-  echo "========== Seed ${S} =========="
-
-  # -------------------------------------------------------------------------
-  echo "  [1/3] Pretrain ControllableGPT — all codebook sizes"
+  echo "  === Seed ${S} ==="
   for N in "${NUM_LATENTS_LIST[@]}"; do
     echo "    num_latents=${N}"
     CTRL_CKPT="${CKPT_ROOT}/pretrain_controllable_vocab${VOCAB_SIZE}_nlatent${N}_seed${S}"
@@ -68,9 +67,12 @@ for S in "${SEEDS[@]}"; do
         --wandb.dir ${WANDB_DIR}
     fi
   done
+done
 
-  # -------------------------------------------------------------------------
-  echo "  [2/3] Policy distillation — all codebook sizes"
+# -----------------------------------------------------------------------------
+echo "===== [2/3] Policy distillation — all seeds × all codebook sizes ====="
+for S in "${SEEDS[@]}"; do
+  echo "  === Seed ${S} ==="
   for N in "${NUM_LATENTS_LIST[@]}"; do
     echo "    num_latents=${N}"
     CTRL_CKPT="${CKPT_ROOT}/pretrain_controllable_vocab${VOCAB_SIZE}_nlatent${N}_seed${S}"
@@ -86,12 +88,16 @@ for S in "${SEEDS[@]}"; do
         --training.batch-size ${BATCH_SIZE} \
         --wandb.project ${WANDB_PROJECT} \
         --wandb.entity ${WANDB_ENTITY} \
-        --wandb.group ${WANDB_GROUP}
+        --wandb.group ${WANDB_GROUP} \
+        --wandb.dir ${WANDB_DIR}
     fi
   done
+done
 
-  # -------------------------------------------------------------------------
-  echo "  [3/3] PPO finetune ControllableGPT — all codebook sizes and tasks"
+# -----------------------------------------------------------------------------
+echo "===== [3/3] PPO finetune — all seeds × all codebook sizes × all tasks ====="
+for S in "${SEEDS[@]}"; do
+  echo "  === Seed ${S} ==="
   for N in "${NUM_LATENTS_LIST[@]}"; do
     CTRL_CKPT="${CKPT_ROOT}/pretrain_controllable_vocab${VOCAB_SIZE}_nlatent${N}_seed${S}"
     DISTILL_CKPT="${CKPT_ROOT}/policydistillation_nlatents${N}_vocab${VOCAB_SIZE}_seed${S}"
@@ -114,7 +120,6 @@ for S in "${SEEDS[@]}"; do
       fi
     done
   done
-
 done
 
 echo "===== Experiment 3 complete ====="
