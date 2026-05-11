@@ -10,6 +10,7 @@
 # larger than the token vocabulary to characterise the scaling behaviour of
 # the latent action model.
 # Runs all pretrain seeds, then all distill seeds, then all RL seeds.
+# If 2+ GPUs are available, fills one slot per GPU, waits when all are busy.
 # Total runs: (1+1+5) × |num_latents| × |seeds| = 7 × 6 × 5 = 210
 # =============================================================================
 set -euo pipefail
@@ -30,6 +31,57 @@ _done() {
   echo "    skipping — $1/done sentinel exists"
 }
 
+# ---------------------------------------------------------------------------
+# GPU parallelism
+# ---------------------------------------------------------------------------
+if [ -n "${CUDA_VISIBLE_DEVICES:-}" ]; then
+  IFS=',' read -ra GPU_IDS <<< "${CUDA_VISIBLE_DEVICES}"
+else
+  NUM_DETECTED=$(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null | wc -l || echo 1)
+  GPU_IDS=()
+  for i in $(seq 0 $((NUM_DETECTED - 1))); do GPU_IDS+=("$i"); done
+fi
+NUM_GPUS=${#GPU_IDS[@]}
+echo "Using ${NUM_GPUS} GPU(s): ${GPU_IDS[*]}"
+
+_GPU_SLOT=0
+_PIDS=()
+
+_launch() {
+  if [ "${NUM_GPUS}" -ge 2 ]; then
+    CUDA_VISIBLE_DEVICES=${GPU_IDS[${_GPU_SLOT}]} "$@" &
+    _PIDS+=($!)
+    _GPU_SLOT=$(( (_GPU_SLOT + 1) % NUM_GPUS ))
+    if [ ${#_PIDS[@]} -ge "${NUM_GPUS}" ]; then
+      wait "${_PIDS[@]}"
+      _PIDS=()
+    fi
+  else
+    "$@"
+  fi
+}
+
+_flush() {
+  if [ ${#_PIDS[@]} -gt 0 ]; then
+    wait "${_PIDS[@]}"
+    _PIDS=()
+  fi
+}
+
+# ---------------------------------------------------------------------------
+# SIGINT/SIGTERM handler — kill all background jobs then exit
+# ---------------------------------------------------------------------------
+_cleanup() {
+  echo ""
+  echo "Caught signal — killing all background jobs..."
+  if [ ${#_PIDS[@]} -gt 0 ]; then
+    kill "${_PIDS[@]}" 2>/dev/null || true
+  fi
+  exit 1
+}
+trap _cleanup SIGINT SIGTERM
+
+# ---------------------------------------------------------------------------
 
 DATA_DIR=$(_cfg data_dir)
 CKPT_ROOT=$(_cfg ckpt_root)
@@ -54,7 +106,7 @@ for S in "${SEEDS[@]}"; do
     echo "    num_latents=${N}"
     CTRL_CKPT="${CKPT_ROOT}/pretrain_controllable_vocab${VOCAB_SIZE}_nlatent${N}_seed${S}"
     if ! _done "${CTRL_CKPT}"; then
-      python3 -m scripts.train pretrain-controllable \
+      _launch python3 -m scripts.train pretrain-controllable \
         --seed ${S} \
         --data-smiles ${DATA_DIR} \
         --tokenizer.vocab-size ${VOCAB_SIZE} \
@@ -68,6 +120,7 @@ for S in "${SEEDS[@]}"; do
     fi
   done
 done
+_flush
 
 # -----------------------------------------------------------------------------
 echo "===== [2/3] Policy distillation — all seeds × all codebook sizes ====="
@@ -78,7 +131,7 @@ for S in "${SEEDS[@]}"; do
     CTRL_CKPT="${CKPT_ROOT}/pretrain_controllable_vocab${VOCAB_SIZE}_nlatent${N}_seed${S}"
     DISTILL_CKPT="${CKPT_ROOT}/policydistillation_nlatents${N}_vocab${VOCAB_SIZE}_seed${S}"
     if ! _done "${DISTILL_CKPT}"; then
-      python3 -m scripts.train policy-distill \
+      _launch python3 -m scripts.train policy-distill \
         --seed ${S} \
         --data-smiles ${DATA_DIR} \
         --tokenizer.vocab-size ${VOCAB_SIZE} \
@@ -93,6 +146,7 @@ for S in "${SEEDS[@]}"; do
     fi
   done
 done
+_flush
 
 # -----------------------------------------------------------------------------
 echo "===== [3/3] PPO finetune — all seeds × all codebook sizes × all tasks ====="
@@ -105,7 +159,7 @@ for S in "${SEEDS[@]}"; do
       echo "    num_latents=${N}, task=${TASK}"
       CTRL_PPO_CKPT="${CKPT_ROOT}/ppo_${TASK}_controllable_nlatents${N}_envs16_steps256_seed${S}"
       if ! _done "${CTRL_PPO_CKPT}"; then
-        python3 -m scripts.train_ppo finetune-controllable \
+        _launch python3 -m scripts.train_ppo finetune-controllable \
           --seed ${S} \
           --data-smiles ${DATA_DIR} \
           --task ${TASK} \
@@ -121,5 +175,6 @@ for S in "${SEEDS[@]}"; do
     done
   done
 done
+_flush
 
 echo "===== Experiment 3 complete ====="
