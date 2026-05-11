@@ -576,6 +576,7 @@ class PolicyNetwork(GPT):
                  bos_token_id: int = 3,
                  eos_token_id: int = 4):
 
+        self.num_latents = num_latents
         super().__init__(vocab_size=vocab_size,
                          n_layer=n_layer,
                          n_head=n_head,
