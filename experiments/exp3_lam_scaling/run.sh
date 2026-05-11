@@ -100,6 +100,7 @@ CONTROLLABLE_ITERS=$(_cfg controllable_iters)
 DISTILLATION_ITERS=$(_cfg distillation_iters)
 RL_BUDGET=$(_cfg rl_budget)
 BATCH_SIZE=$(_cfg batch_size)
+USE_DISTILLATION=$(_cfg use_distillation)
 WANDB_GROUP=$(_cfg wandb_group)
 WANDB_PROJECT=$(_cfg wandb_project)
 WANDB_ENTITY=$(_cfg wandb_entity)
@@ -130,30 +131,34 @@ done
 _flush
 
 # -----------------------------------------------------------------------------
-echo "===== [2/3] Policy distillation — all seeds × all codebook sizes ====="
-for S in "${SEEDS[@]}"; do
-  echo "  === Seed ${S} ==="
-  for N in "${NUM_LATENTS_LIST[@]}"; do
-    echo "    num_latents=${N}"
-    CTRL_CKPT="${CKPT_ROOT}/pretrain_controllable_vocab${VOCAB_SIZE}_nlatent${N}_seed${S}"
-    DISTILL_CKPT="${CKPT_ROOT}/policydistillation_nlatents${N}_vocab${VOCAB_SIZE}_seed${S}"
-    if ! _done "${DISTILL_CKPT}"; then
-      _launch python3 -m scripts.train policy-distill \
-        --seed ${S} \
-        --data-smiles ${DATA_DIR} \
-        --tokenizer.vocab-size ${VOCAB_SIZE} \
-        --controllable-gpt-path "${CTRL_CKPT}/best.pt" \
-        --model.num-latents ${N} \
-        --training.max-iters ${DISTILLATION_ITERS} \
-        --training.batch-size ${BATCH_SIZE} \
-        --wandb.project ${WANDB_PROJECT} \
-        --wandb.entity ${WANDB_ENTITY} \
-        --wandb.group ${WANDB_GROUP} \
-        --wandb.dir ${WANDB_DIR}
-    fi
+if [ "${USE_DISTILLATION}" = "true" ]; then
+  echo "===== [2/3] Policy distillation — all seeds × all codebook sizes ====="
+  for S in "${SEEDS[@]}"; do
+    echo "  === Seed ${S} ==="
+    for N in "${NUM_LATENTS_LIST[@]}"; do
+      echo "    num_latents=${N}"
+      CTRL_CKPT="${CKPT_ROOT}/pretrain_controllable_vocab${VOCAB_SIZE}_nlatent${N}_seed${S}"
+      DISTILL_CKPT="${CKPT_ROOT}/policydistillation_nlatents${N}_vocab${VOCAB_SIZE}_seed${S}"
+      if ! _done "${DISTILL_CKPT}"; then
+        _launch python3 -m scripts.train policy-distill \
+          --seed ${S} \
+          --data-smiles ${DATA_DIR} \
+          --tokenizer.vocab-size ${VOCAB_SIZE} \
+          --controllable-gpt-path "${CTRL_CKPT}/best.pt" \
+          --model.num-latents ${N} \
+          --training.max-iters ${DISTILLATION_ITERS} \
+          --training.batch-size ${BATCH_SIZE} \
+          --wandb.project ${WANDB_PROJECT} \
+          --wandb.entity ${WANDB_ENTITY} \
+          --wandb.group ${WANDB_GROUP} \
+          --wandb.dir ${WANDB_DIR}
+      fi
+    done
   done
-done
-_flush
+  _flush
+else
+  echo "===== [2/3] Policy distillation — skipped (use_distillation=false) ====="
+fi
 
 # -----------------------------------------------------------------------------
 echo "===== [3/3] PPO finetune — all seeds × all codebook sizes × all tasks ====="
@@ -166,12 +171,16 @@ for S in "${SEEDS[@]}"; do
       echo "    num_latents=${N}, task=${TASK}"
       CTRL_PPO_CKPT="${CKPT_ROOT}/ppo_${TASK}_controllable_nlatents${N}_envs16_steps256_seed${S}"
       if ! _done "${CTRL_PPO_CKPT}"; then
+        PRETRAINED_ARG=""
+        if [ "${USE_DISTILLATION}" = "true" ]; then
+          PRETRAINED_ARG="--pretrained-ckpt ${DISTILL_CKPT}"
+        fi
         _launch python3 -m scripts.train_ppo finetune-controllable \
           --seed ${S} \
           --data-smiles ${DATA_DIR} \
           --task ${TASK} \
           --tokenizer.vocab-size ${VOCAB_SIZE} \
-          --pretrained-ckpt "${DISTILL_CKPT}" \
+          ${PRETRAINED_ARG} \
           --controllable-gpt-path "${CTRL_CKPT}" \
           --num-latents ${N} \
           --ppo.budget ${RL_BUDGET} \

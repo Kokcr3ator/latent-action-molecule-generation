@@ -144,11 +144,28 @@ class FinetuneControlable(RLLoader):
             ckpt_dir = Path(cfg.ckpt.path)
             ckpt_path = ckpt_dir / cfg.ckpt.ckpt_name
             if ckpt_path.exists():
-                logging.info(f"Loading pretrained model from {ckpt_path}")
+                logging.info(f"Loading pretrained PolicyNetwork from {ckpt_path}")
                 model = PolicyNetwork.load(str(ckpt_path))
+            else:
+                raise FileNotFoundError(f"PolicyNetwork checkpoint not found at {ckpt_path}")
         else:
-            logging.info("Initializing model from scratch (no pretraining)")
-        
+            logging.info("Initializing PolicyNetwork from scratch using ControllableGPT architecture")
+            cgpt_path = Path(self.ckpt_controllable_path) / self.ckpt_name
+            cgpt = ControllableGPT.load(str(cgpt_path))
+            model = PolicyNetwork(
+                vocab_size=cgpt.vocab_size,
+                n_layer=cgpt.n_layer,
+                n_head=cgpt.n_head,
+                n_embd=cgpt.n_embd,
+                dropout=cgpt.dropout,
+                bias=cgpt.bias,
+                context_length=cgpt.context_length,
+                num_latents=cgpt.num_latents,
+                pad_token_id=cgpt.pad_token_id,
+                bos_token_id=cgpt.bos_token_id,
+                eos_token_id=cgpt.eos_token_id,
+            )
+
         return model.to(device)
 
     def load_dynamics_model(self, device) -> DynamicsModel:

@@ -96,8 +96,8 @@ class FinetuneBaseCfg:
 class FinetuneControllableCfg:
     """PPO finetuning with latent action controllable model."""
 
-    pretrained_ckpt: str  # path to policy-distilled PolicyNetwork checkpoint dir
     controllable_gpt_path: str  # path to ControllableGPT checkpoint dir
+    pretrained_ckpt: str = ""  # path to policy-distilled PolicyNetwork; empty = init from scratch
     task: str = "qed"
     seed: int = 42
     data_smiles: str = "interdiff/data/zinc/zinc.txt"
@@ -175,7 +175,9 @@ def main() -> None:
 
     loader_cfg = SimpleNamespace(
         ckpt=SimpleNamespace(
-            init_from="resume", path=cfg.pretrained_ckpt, ckpt_name="best.pt"
+            init_from="resume" if cfg.pretrained_ckpt else "scratch",
+            path=cfg.pretrained_ckpt,
+            ckpt_name="best.pt"
         ),
         tokenizer=tok,
         ppo=cfg.ppo,
