@@ -14,7 +14,7 @@ num_latents_list: [8, 32, 128, 512, 1024, 2048, 4096] # codebook sizes to sweep
 
 # --- Training ----------------------------------------------------------------
 batch_size: 2048
-seeds: [0, 1, 2, 3, 4]
+seeds: [0, 1, 2]
 tasks: [qed, logp, sa, mw, tpsa]
 controllable_iters: 20_000   # max_iters for ControllableGPT pretraining
 distillation_iters: 20_000   # max_iters for policy distillation
