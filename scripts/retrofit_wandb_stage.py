@@ -17,7 +17,7 @@ import argparse
 import wandb
 
 
-def _infer_fields(run_name: str) -> tuple[str, str] | None:
+def _infer_fields(run_name: str):
     """Return (stage, method) or None if unrecognised."""
     if run_name.startswith("pretrain_base_"):
         return "pretrain", "gpt"
