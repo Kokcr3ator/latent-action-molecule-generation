@@ -62,7 +62,7 @@ _launch() {
     CUDA_VISIBLE_DEVICES=${GPU_IDS[${_GPU_SLOT}]} "$@" &
     _PIDS+=($!)
     _GPU_SLOT=$(( (_GPU_SLOT + 1) % NUM_GPUS ))
-    sleep "${_COMPILE_STAGGER}"
+    sleep "${_COMPILE_STAGGER}" & wait $!
   else
     "$@"
   fi
