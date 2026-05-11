@@ -47,6 +47,8 @@ echo "Using ${NUM_GPUS} GPU(s): ${GPU_IDS[*]}"
 _GPU_SLOT=0
 _PIDS=()
 
+_COMPILE_STAGGER=90  # seconds between launches to stagger torch.compile RAM spikes
+
 _launch() {
   if [ "${NUM_GPUS}" -ge 2 ]; then
     if [ ${#_PIDS[@]} -ge "${NUM_GPUS}" ]; then
@@ -60,6 +62,7 @@ _launch() {
     CUDA_VISIBLE_DEVICES=${GPU_IDS[${_GPU_SLOT}]} "$@" &
     _PIDS+=($!)
     _GPU_SLOT=$(( (_GPU_SLOT + 1) % NUM_GPUS ))
+    sleep "${_COMPILE_STAGGER}"
   else
     "$@"
   fi
