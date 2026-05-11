@@ -221,7 +221,8 @@ def main() -> None:
         group=cfg.wandb.group,
     )
 
-    log_run_setup(logger, asdict(cfg), model=model, ppo_agent=ppo_agent)
+    method = "gpt" if isinstance(cfg, FinetuneBaseCfg) else "cgpt"
+    log_run_setup(logger, {**asdict(cfg), "stage": "rl", "method": method}, model=model, ppo_agent=ppo_agent)
 
     for name, m in [("model", model), ("ppo_agent", ppo_agent)]:
         counts = parameter_counts(m)

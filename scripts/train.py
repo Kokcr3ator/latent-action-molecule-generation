@@ -266,7 +266,17 @@ def main() -> None:
         dir=cfg.wandb.dir,
     )
 
-    log_run_setup(logger, asdict(cfg), model=model)
+    stage = {
+        PretrainBaseCfg: "pretrain",
+        PretrainControllableCfg: "pretrain",
+        PolicyDistillCfg: "distillation",
+    }[type(cfg)]
+    method = {
+        PretrainBaseCfg: "gpt",
+        PretrainControllableCfg: "cgpt",
+        PolicyDistillCfg: "cgpt",
+    }[type(cfg)]
+    log_run_setup(logger, {**asdict(cfg), "stage": stage, "method": method}, model=model)
 
     counts = parameter_counts(model)
     log.info("Model parameters: total=%s trainable=%s",
