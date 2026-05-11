@@ -49,13 +49,17 @@ _PIDS=()
 
 _launch() {
   if [ "${NUM_GPUS}" -ge 2 ]; then
+    if [ ${#_PIDS[@]} -ge "${NUM_GPUS}" ]; then
+      wait -n
+      local alive=()
+      for pid in "${_PIDS[@]}"; do
+        kill -0 "$pid" 2>/dev/null && alive+=("$pid")
+      done
+      _PIDS=("${alive[@]+"${alive[@]}"}")
+    fi
     CUDA_VISIBLE_DEVICES=${GPU_IDS[${_GPU_SLOT}]} "$@" &
     _PIDS+=($!)
     _GPU_SLOT=$(( (_GPU_SLOT + 1) % NUM_GPUS ))
-    if [ ${#_PIDS[@]} -ge "${NUM_GPUS}" ]; then
-      wait "${_PIDS[@]}"
-      _PIDS=()
-    fi
   else
     "$@"
   fi
