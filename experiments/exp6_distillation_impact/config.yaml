@@ -1,0 +1,34 @@
+# =============================================================================
+# Experiment 6 — Impact of policy distillation
+#
+# Research question:
+#   Does policy distillation improve RL performance compared to initialising
+#   the PolicyNetwork from scratch?
+#
+# Reuses pretrained ControllableGPT checkpoints from exp3 (no pretraining).
+# Runs two conditions per (seed × num_latents × task):
+#   - nodistill: PolicyNetwork initialised from scratch, straight to RL
+#   - distill:   PolicyNetwork pre-trained via distillation, then RL
+# =============================================================================
+
+# --- Paths -------------------------------------------------------------------
+exp3_ckpt_root: /scratch/uceeepi/interdiff/ckpts   # exp3 pretrained CGPT checkpoints
+ckpt_root: /scratch/uceeepi/interdiff/ckpts        # where exp6 saves its own checkpoints
+
+# --- Data / model ------------------------------------------------------------
+data_dir: interdiff/data/zinc/zinc.txt
+vocab_size: 2048
+num_latents_list: [128, 512, 2048]   # representative subset from exp3
+
+# --- Training ----------------------------------------------------------------
+seeds: [0, 1, 2]
+tasks: [qed, logp, sa, mw, tpsa]
+distillation_iters: 20_000
+rl_budget: 200_000_000
+batch_size: 2048
+
+# --- Logging -----------------------------------------------------------------
+wandb_project: interdiff
+wandb_entity: latent-action-interdiff
+wandb_group: exp6_distillation_impact
+wandb_dir: /scratch/uceeepi/interdiff/wandb
