@@ -117,7 +117,7 @@ class FinetuneControllableCfg:
 def _run_name(cfg) -> str:
     ppo = cfg.ppo
     if isinstance(cfg, FinetuneBaseCfg):
-        return f"ppo_{cfg.task}_envs{ppo.num_envs}_steps{ppo.num_steps}_seed{cfg.seed}"
+        return f"ppo_{cfg.task}_vocab{cfg.tokenizer.vocab_size}_envs{ppo.num_envs}_steps{ppo.num_steps}_seed{cfg.seed}"
     if isinstance(cfg, FinetuneControllableCfg):
         return f"ppo_{cfg.task}_controllable_nlatents{cfg.num_latents}_envs{ppo.num_envs}_steps{ppo.num_steps}_seed{cfg.seed}"
     raise ValueError(f"Unknown config type: {type(cfg)}")

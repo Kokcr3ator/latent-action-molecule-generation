@@ -1,0 +1,31 @@
+# =============================================================================
+# Experiment 7 — GPT baseline scaling with vocab size
+#
+# Research question:
+#   How does a vanilla GPT baseline perform when its action space (vocab size)
+#   matches the codebook sizes swept in exp3?
+#
+# Trains a base GPT at each vocab size, then fine-tunes with PPO.
+# Vocab sizes mirror exp3's num_latents_list for a direct apples-to-apples
+# comparison of discrete action space size.
+# =============================================================================
+
+# --- Paths -------------------------------------------------------------------
+data_dir: interdiff/data/zinc/zinc.txt
+ckpt_root: /scratch/uceeepi/interdiff/ckpts
+
+# --- Model -------------------------------------------------------------------
+vocab_sizes_list: [8, 32, 128, 512, 1024, 2048, 4096]  # mirrors exp3 num_latents_list
+
+# --- Training ----------------------------------------------------------------
+seeds: [0, 1, 2]
+tasks: [qed, logp, sa, mw, tpsa]
+pretrain_iters: 20_000
+rl_budget: 200_000_000
+batch_size: 2048
+
+# --- Logging -----------------------------------------------------------------
+wandb_project: interdiff
+wandb_entity: latent-action-interdiff
+wandb_group: exp7_gpt_vocab_scaling
+wandb_dir: /scratch/uceeepi/interdiff/wandb
