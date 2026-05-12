@@ -214,7 +214,13 @@ def main() -> None:
         f"Environment: {env.num_envs} envs, action space [0, {env.action_space.upper})"
     )
 
-    ppo_agent = loader.setup_ppo_agent(loader_cfg, model, reference_model, device)
+    from interdiff.ppo import PPO
+    ppo_agent = PPO(
+        model=model,
+        optimiser=None,
+        hparams=None,
+        reference_model=reference_model,
+    ).to(device)
 
     logger = WandbLogger(
         project=cfg.wandb.project,
@@ -267,6 +273,11 @@ def main() -> None:
         random_start=ppo.random_start,
     )
     ppo_agent.hparams = hparams
+    ppo_agent.optimiser = torch.optim.AdamW(
+        ppo_agent.parameters(),
+        lr=ppo.lr,
+        weight_decay=ppo.weight_decay,
+    )
 
     rl_train_cfg = RLTrainConfig(
         device=str(device),
