@@ -15,7 +15,7 @@ data_dir: interdiff/data/zinc/zinc.txt
 ckpt_root: /scratch/uceeepi/interdiff/ckpts
 
 # --- Model -------------------------------------------------------------------
-vocab_sizes_list: [8, 32, 128, 512, 1024, 2048, 4096]  # mirrors exp3 num_latents_list
+vocab_sizes_list: [128, 512, 1024, 2048, 4096]  # 8 and 32 are below the SMILES alphabet size and can't be tokenised
 
 # --- Training ----------------------------------------------------------------
 seeds: [0, 1, 2]
