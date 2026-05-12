@@ -18,6 +18,7 @@ ckpt_root: /scratch/uceeepi/interdiff/ckpts
 vocab_sizes_list: [128, 512, 1024, 2048, 4096]  # 8 and 32 are below the SMILES alphabet size and can't be tokenised
 
 # --- Training ----------------------------------------------------------------
+jobs_per_gpu: 2   # concurrent jobs per GPU; set based on available GPU memory
 seeds: [0, 1, 2]
 tasks: [qed, logp, sa, mw, tpsa]
 pretrain_iters: 20_000

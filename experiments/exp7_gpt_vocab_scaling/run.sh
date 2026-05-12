@@ -45,7 +45,7 @@ _COMPILE_STAGGER=90
 
 _launch() {
   if [ "${NUM_GPUS}" -ge 2 ]; then
-    if [ ${#_PIDS[@]} -ge "${NUM_GPUS}" ]; then
+    if [ ${#_PIDS[@]} -ge "${MAX_JOBS}" ]; then
       wait -n
       local alive=()
       for pid in "${_PIDS[@]}"; do
@@ -53,9 +53,10 @@ _launch() {
       done
       _PIDS=("${alive[@]+"${alive[@]}"}")
     fi
-    CUDA_VISIBLE_DEVICES=${GPU_IDS[${_GPU_SLOT}]} "$@" &
+    local gpu_idx=$(( _GPU_SLOT % NUM_GPUS ))
+    CUDA_VISIBLE_DEVICES=${GPU_IDS[$gpu_idx]} "$@" &
     _PIDS+=($!)
-    _GPU_SLOT=$(( (_GPU_SLOT + 1) % NUM_GPUS ))
+    _GPU_SLOT=$(( _GPU_SLOT + 1 ))
     sleep "${_COMPILE_STAGGER}" & wait $!
   else
     "$@"
@@ -89,6 +90,8 @@ read -ra TASKS <<< "$(_cfg tasks)"
 PRETRAIN_ITERS=$(_cfg pretrain_iters)
 RL_BUDGET=$(_cfg rl_budget)
 BATCH_SIZE=$(_cfg batch_size)
+JOBS_PER_GPU=$(_cfg jobs_per_gpu)
+MAX_JOBS=$(( NUM_GPUS * JOBS_PER_GPU ))
 WANDB_GROUP=$(_cfg wandb_group)
 WANDB_PROJECT=$(_cfg wandb_project)
 WANDB_ENTITY=$(_cfg wandb_entity)
