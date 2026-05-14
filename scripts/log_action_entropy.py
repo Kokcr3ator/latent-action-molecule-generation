@@ -84,7 +84,7 @@ def _push_wandb(H: float, num_latents: int, vocab_size: int,
         config={"num_latents": num_latents, "conditional_entropy": H},
     )
     for step in range(0, max_steps + 1, 100):
-        wandb.log({"val/loss": H, "train/loss": H}, step=step)
+        wandb.log({"val/loss": H, "train/loss": H, "step": step})
     run.summary["dataset/conditional_entropy"] = H
     run.summary["dataset/marginal_entropy"]    = math.log(num_latents)
     wandb.finish()
