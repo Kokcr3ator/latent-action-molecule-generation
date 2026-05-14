@@ -12,21 +12,28 @@
 
 # --- Paths -------------------------------------------------------------------
 data_dir: interdiff/data/zinc/zinc.txt
-ckpt_root: /scratch/uceeepi/interdiff/ckpts
+ckpt_root: /scratch/$USER/interdiff/ckpts
 
 # --- Model -------------------------------------------------------------------
 vocab_sizes_list: [128, 512, 1024, 2048, 4096]  # 8 and 32 are below the SMILES alphabet size and can't be tokenised
+
+# Matched-parameter GPT variant (~16.4M params ≈ PolicyNetwork + DynamicsModel)
+# Set use_large_gpt: true to also run this condition alongside the default small GPT.
+use_large_gpt: false
+large_gpt_n_layer: 6
+large_gpt_n_head: 8   # 448 / 8 = 56 head dim
+large_gpt_n_embd: 448
 
 # --- Training ----------------------------------------------------------------
 jobs_per_gpu: 2   # concurrent jobs per GPU; set based on available GPU memory
 seeds: [0, 1, 2]
 tasks: [qed, logp, sa, mw, tpsa]
 pretrain_iters: 20_000
-rl_budget: 200_000_000
+rl_budget: 20_000_000
 batch_size: 2048
 
 # --- Logging -----------------------------------------------------------------
 wandb_project: interdiff
 wandb_entity: latent-action-interdiff
 wandb_group: exp7_gpt_vocab_scaling
-wandb_dir: /scratch/uceeepi/interdiff/wandb
+wandb_dir: /scratch/$USER/interdiff/wandb

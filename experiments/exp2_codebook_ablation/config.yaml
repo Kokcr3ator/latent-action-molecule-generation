@@ -6,7 +6,7 @@
 
 # --- Paths -------------------------------------------------------------------
 data_dir: interdiff/data/zinc/zinc.txt   # raw SMILES file
-ckpt_root: /scratch/uceeepi/interdiff/ckpts
+ckpt_root: /scratch/$USER/interdiff/ckpts
 
 # --- Model -------------------------------------------------------------------
 vocab_size: 2048                          # base GPT token vocabulary size
@@ -19,10 +19,10 @@ tasks: [qed, logp, sa, mw, tpsa]
 pretrain_iters: 20_000       # max_iters for base GPT pretraining
 controllable_iters: 20_000   # max_iters for ControllableGPT pretraining
 distillation_iters: 20_000   # max_iters for policy distillation
-rl_budget: 250000000        # total env steps for PPO finetuning
+rl_budget: 20_000_000        # total env steps for PPO finetuning
 
 # --- Logging -----------------------------------------------------------------
 wandb_project: interdiff
 wandb_entity: latent-action-interdiff
 wandb_group: exp2_compression_comparison
-wandb_dir: /scratch/uceeepi/interdiff/wandb
+wandb_dir: /scratch/$USER/interdiff/wandb

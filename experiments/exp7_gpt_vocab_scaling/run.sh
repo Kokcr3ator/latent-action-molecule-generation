@@ -15,10 +15,11 @@ CFG="$(cd "$(dirname "$0")" && pwd)/config.yaml"
 cd "${ROOT}"
 
 _cfg() { python3 -c "
-import yaml
+import yaml, os
 c = yaml.safe_load(open('${CFG}'))
 v = c['$1']
-print(' '.join(map(str, v)) if isinstance(v, list) else v)
+expand = lambda s: os.path.expandvars(str(s))
+print(' '.join(expand(x) for x in v) if isinstance(v, list) else expand(v))
 "; }
 
 _done() {
@@ -96,56 +97,75 @@ WANDB_GROUP=$(_cfg wandb_group)
 WANDB_PROJECT=$(_cfg wandb_project)
 WANDB_ENTITY=$(_cfg wandb_entity)
 WANDB_DIR=$(_cfg wandb_dir)
+USE_LARGE_GPT=$(_cfg use_large_gpt)
+LARGE_N_LAYER=$(_cfg large_gpt_n_layer)
+LARGE_N_HEAD=$(_cfg large_gpt_n_head)
+LARGE_N_EMBD=$(_cfg large_gpt_n_embd)
 
-# -----------------------------------------------------------------------------
-echo "===== [1/2] Pretrain base GPT — all seeds × all vocab sizes ====="
-for S in "${SEEDS[@]}"; do
-  echo "  === Seed ${S} ==="
-  for V in "${VOCAB_SIZES_LIST[@]}"; do
-    echo "    vocab_size=${V}"
-    BASE_CKPT="${CKPT_ROOT}/pretrain_base_vocab${V}_seed${S}"
-    if ! _done "${BASE_CKPT}"; then
-      _launch python3 -m scripts.train pretrain-base \
-        --seed ${S} \
-        --data-smiles ${DATA_DIR} \
-        --tokenizer.vocab-size ${V} \
-        --training.max-iters ${PRETRAIN_ITERS} \
-        --training.batch-size ${BATCH_SIZE} \
-        --ckpt-root ${CKPT_ROOT} \
-        --wandb.project ${WANDB_PROJECT} \
-        --wandb.entity ${WANDB_ENTITY} \
-        --wandb.group ${WANDB_GROUP} \
-        --wandb.dir ${WANDB_DIR}
-    fi
-  done
-done
-_flush
+# Helper: run one pretrain + PPO sweep for a given model size tag and extra model flags
+_run_sweep() {
+  local TAG="$1"; shift        # e.g. "base" or "large"
+  local MODEL_FLAGS=("$@")    # extra --model.* flags (empty for small GPT)
 
-# -----------------------------------------------------------------------------
-echo "===== [2/2] PPO finetune — all seeds × all vocab sizes × all tasks ====="
-for S in "${SEEDS[@]}"; do
-  echo "  === Seed ${S} ==="
-  for V in "${VOCAB_SIZES_LIST[@]}"; do
-    BASE_CKPT="${CKPT_ROOT}/pretrain_base_vocab${V}_seed${S}"
-    for TASK in "${TASKS[@]}"; do
-      echo "    vocab_size=${V}, task=${TASK}"
-      PPO_CKPT="${CKPT_ROOT}/ppo_${TASK}_vocab${V}_envs16_steps256_seed${S}"
-      if ! _done "${PPO_CKPT}"; then
-        _launch python3 -m scripts.train_ppo finetune-base \
+  echo "===== [pretrain:${TAG}] Pretrain GPT (${TAG}) — all seeds × all vocab sizes ====="
+  for S in "${SEEDS[@]}"; do
+    echo "  === Seed ${S} ==="
+    for V in "${VOCAB_SIZES_LIST[@]}"; do
+      echo "    vocab_size=${V}"
+      CKPT="${CKPT_ROOT}/pretrain_${TAG}_vocab${V}_seed${S}"
+      if ! _done "${CKPT}"; then
+        _launch python3 -m scripts.train pretrain-base \
           --seed ${S} \
           --data-smiles ${DATA_DIR} \
-          --task ${TASK} \
           --tokenizer.vocab-size ${V} \
-          --pretrained-ckpt "${BASE_CKPT}" \
+          --training.max-iters ${PRETRAIN_ITERS} \
+          --training.batch-size ${BATCH_SIZE} \
           --ckpt-root ${CKPT_ROOT} \
-          --ppo.budget ${RL_BUDGET} \
           --wandb.project ${WANDB_PROJECT} \
           --wandb.entity ${WANDB_ENTITY} \
-          --wandb.group ${WANDB_GROUP}
+          --wandb.group ${WANDB_GROUP} \
+          --wandb.dir ${WANDB_DIR} \
+          "${MODEL_FLAGS[@]}"
       fi
     done
   done
-done
-_flush
+  _flush
+
+  echo "===== [ppo:${TAG}] PPO finetune — all seeds × all vocab sizes × all tasks ====="
+  for S in "${SEEDS[@]}"; do
+    echo "  === Seed ${S} ==="
+    for V in "${VOCAB_SIZES_LIST[@]}"; do
+      CKPT="${CKPT_ROOT}/pretrain_${TAG}_vocab${V}_seed${S}"
+      for TASK in "${TASKS[@]}"; do
+        echo "    vocab_size=${V}, task=${TASK}"
+        PPO_CKPT="${CKPT_ROOT}/ppo_${TASK}_${TAG}_vocab${V}_envs16_steps256_seed${S}"
+        if ! _done "${PPO_CKPT}"; then
+          _launch python3 -m scripts.train_ppo finetune-base \
+            --seed ${S} \
+            --data-smiles ${DATA_DIR} \
+            --task ${TASK} \
+            --tokenizer.vocab-size ${V} \
+            --pretrained-ckpt "${CKPT}" \
+            --ckpt-root ${CKPT_ROOT} \
+            --ppo.budget ${RL_BUDGET} \
+            --wandb.project ${WANDB_PROJECT} \
+            --wandb.entity ${WANDB_ENTITY} \
+            --wandb.group ${WANDB_GROUP}
+        fi
+      done
+    done
+  done
+  _flush
+}
+
+# -----------------------------------------------------------------------------
+_run_sweep "base"
+
+if [ "${USE_LARGE_GPT}" = "true" ]; then
+  _run_sweep "large" \
+    --model.n-layer ${LARGE_N_LAYER} \
+    --model.n-head  ${LARGE_N_HEAD} \
+    --model.n-embd  ${LARGE_N_EMBD}
+fi
 
 echo "===== Experiment 7 complete ====="

@@ -32,6 +32,13 @@ def run_tokenisation(
     dataset_path = to_absolute_path(data_smiles)
     os.makedirs(out_dir, exist_ok=True)
 
+    tok_file = os.path.join(out_dir, "tokenizer.json")
+    save_path = os.path.join(out_dir, "dataset.safetensors")
+
+    if os.path.exists(tok_file) and os.path.exists(save_path):
+        log.info(f"Tokenized dataset already exists at {save_path}, skipping tokenisation")
+        return out_dir, save_path
+
     log.info(f"Loading SMILES from {dataset_path}")
     smiles_list = load_smiles(dataset_path)
     log.info(f"Loaded {len(smiles_list)} SMILES")
@@ -54,21 +61,19 @@ def run_tokenisation(
         length=context_length,
     )
     log.info("Tokenizer training complete.")
-    tokenizer.save(os.path.join(out_dir, "tokenizer.json"))
+    tokenizer.save(tok_file)
 
     log.info("Tokenizing dataset...")
     encodings = tokenizer.encode_batch([with_bounds(s) for s in smiles_list])
     tokenised_dataset = [e.ids for e in encodings]
 
-    vocab_size = len(tokenizer.get_vocab())
-    if vocab_size <= 256:
+    actual_vocab_size = len(tokenizer.get_vocab())
+    if actual_vocab_size <= 256:
         dtype = torch.uint8
-    elif vocab_size <= 32767:
+    elif actual_vocab_size <= 32767:
         dtype = torch.int16
     else:
         dtype = torch.int32
-
-    save_path = os.path.join(out_dir, "dataset.safetensors")
 
     save_tokenised_dataset(
         tokenized_data=tokenised_dataset,

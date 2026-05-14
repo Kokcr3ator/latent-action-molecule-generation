@@ -10,7 +10,7 @@
 
 # --- Paths -------------------------------------------------------------------
 data_dir: interdiff/data/zinc/zinc.txt
-ckpt_root: /scratch/uceeepi/interdiff/ckpts
+ckpt_root: /scratch/$USER/interdiff/ckpts
 
 # --- Model -------------------------------------------------------------------
 vocab_size: 2048
@@ -26,4 +26,4 @@ controllable_iters: 20_000
 wandb_project: interdiff
 wandb_entity: latent-action-interdiff
 wandb_group: exp5_vq_norm
-wandb_dir: /scratch/uceeepi/interdiff/wandb
+wandb_dir: /scratch/$USER/interdiff/wandb

@@ -18,10 +18,11 @@ CFG="$(cd "$(dirname "$0")" && pwd)/config.yaml"
 cd "${ROOT}"
 
 _cfg() { python3 -c "
-import yaml
+import yaml, os
 c = yaml.safe_load(open('${CFG}'))
 v = c['$1']
-print(' '.join(map(str, v)) if isinstance(v, list) else v)
+expand = lambda s: os.path.expandvars(str(s))
+print(' '.join(expand(x) for x in v) if isinstance(v, list) else expand(v))
 "; }
 
 _done() {

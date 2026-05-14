@@ -8,7 +8,7 @@
 
 # --- Paths -------------------------------------------------------------------
 data_dir: interdiff/data/zinc/zinc.txt   # raw SMILES file
-ckpt_root: /scratch/uceeepi/interdiff/ckpts
+ckpt_root: /scratch/$USER/interdiff/ckpts
 
 # --- Model -------------------------------------------------------------------
 vocab_size: 2048     # base GPT vocab size (must match exp1)
@@ -24,4 +24,4 @@ wandb_project: interdiff
 wandb_entity: latent-action-interdiff
 wandb_log: true
 wandb_group: exp4_temperature_ablation
-wandb_dir: /scratch/uceeepi/interdiff/wandb
+wandb_dir: /scratch/$USER/interdiff/wandb
