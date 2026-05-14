@@ -23,7 +23,7 @@ num_latents_list: [2048]   # representative subset from exp3
 # --- Training ----------------------------------------------------------------
 seeds: [0, 1, 2]
 tasks: [qed, logp]
-distillation_iters: 20_000
+distillation_iters: 50_000
 rl_budget: 20_000_000
 batch_size: 2048
 
