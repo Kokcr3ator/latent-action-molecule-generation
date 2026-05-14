@@ -21,6 +21,7 @@ vocab_size: 2048
 num_latents_list: [2048]   # representative subset from exp3
 
 # --- Training ----------------------------------------------------------------
+jobs_per_gpu: 2   # concurrent jobs per GPU
 seeds: [0, 1, 2]
 tasks: [qed, logp]
 distillation_iters: 50_000
