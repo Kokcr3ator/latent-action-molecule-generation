@@ -3,22 +3,21 @@ W&B as a horizontal reference line on the val/loss plot.
 
 Two modes:
 
-  gpt     Actions are the next tokens s_{t+1} — no model needed, only the
-          tokenised dataset.  This gives the natural entropy of the SMILES/
-          SELFIES sequences and is the lower bound for base GPT training.
+  gpt     Actions are the next tokens s_{t+1} — no model required.
+          Gives the natural entropy of the SMILES/SELFIES sequences and is
+          the lower bound for base GPT training.
 
   policy  Actions are VQ codebook indices produced by a specific LAM.  Pass
           the pre-generated actions safetensors file and the codebook size.
 
 Usage:
-    # GPT lower bound — tokenised dataset only
+    # GPT lower bound
     python -m scripts.log_action_entropy gpt \\
-        --tokens-path /path/to/dataset.safetensors \\
-        --wandb.group exp7_gpt_vocab_scaling
+        --seed 0 --wandb.group exp7_gpt_vocab_scaling
 
-    # Policy distillation lower bound — pre-generated actions file
+    # Policy distillation lower bound
     python -m scripts.log_action_entropy policy \\
-        --tokens-path  /path/to/dataset.safetensors \\
+        --seed 0 \\
         --actions-path /path/to/actions_dataset_num_latent_actions_2048_vocab_size_2048.safetensors \\
         --num-latents  2048 \\
         --wandb.group  exp6_distillation_impact
@@ -35,6 +34,8 @@ import tyro
 
 from interdiff.dataset_entropy import empirical_conditional_entropy
 from interdiff.io import _load_tensor_from_safetensors
+from interdiff.io import seed_all
+from scripts.tokenise_dataset import run_tokenisation
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -51,7 +52,10 @@ class WandbCfg:
 
 @dataclass
 class _Common:
-    tokens_path: str                # safetensors [N, T] tokenised sequences
+    seed: int = 0
+    data_smiles: str = "interdiff/data/zinc/zinc.txt"
+    vocab_size: int = 2048
+    context_length: int = 128
     pad_token_id: int = 0
     max_steps: int = 20_000
     wandb: WandbCfg = field(default_factory=WandbCfg)
@@ -65,8 +69,8 @@ class GptCfg(_Common):
 @dataclass
 class PolicyCfg(_Common):
     """Policy mode: actions are VQ indices from a pre-generated actions file."""
-    actions_path: str = ""          # safetensors [N, T-1] action indices
-    num_latents: int = 2048         # codebook size
+    actions_path: str = ""
+    num_latents: int = 2048
 
 
 def _run(tokens: torch.Tensor, actions: torch.Tensor, num_latents: int,
@@ -107,20 +111,26 @@ def main() -> None:
         Annotated[PolicyCfg, tyro.conf.subcommand("policy")],
     ])
 
-    tokens = _load_tensor_from_safetensors(cfg.tokens_path).to(torch.long)
-    log.info(f"Loaded tokens {tuple(tokens.shape)}")
+    seed_all(cfg.seed)
+
+    _, dataset_path = run_tokenisation(
+        data_smiles=cfg.data_smiles,
+        vocab_size=cfg.vocab_size,
+        context_length=cfg.context_length,
+    )
+    tokens = _load_tensor_from_safetensors(dataset_path).to(torch.long)
+    log.info(f"Tokenised dataset: {tuple(tokens.shape)}")
 
     if isinstance(cfg, GptCfg):
-        # actions are just the next tokens — no model needed
         actions     = tokens[:, 1:].clone()
         num_latents = int(tokens.max().item()) + 1
-        run_name    = "entropy_lb_gpt"
+        run_name    = f"entropy_lb_gpt_vocab{cfg.vocab_size}_seed{cfg.seed}"
     else:
         if not cfg.actions_path:
             raise ValueError("--actions-path is required in policy mode")
         actions     = _load_tensor_from_safetensors(cfg.actions_path).to(torch.long)
         num_latents = cfg.num_latents
-        run_name    = f"entropy_lb_policy_nlatents{num_latents}"
+        run_name    = f"entropy_lb_policy_nlatents{num_latents}_seed{cfg.seed}"
         log.info(f"Loaded actions {tuple(actions.shape)}")
 
     _run(
