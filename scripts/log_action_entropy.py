@@ -90,12 +90,13 @@ def _run(tokens: torch.Tensor, actions: torch.Tensor, num_latents: int,
         group=wandb_cfg.group,
         name=run_name,
         dir=wandb_cfg.dir or None,
-        config={"num_latents": num_latents, "conditional_entropy": H},
+        config={"num_latents": num_latents, "conditional_entropy": H,
+                "tokenizer": {"vocab_size": cfg.vocab_size}},
     )
 
     log.info(f"Pushing horizontal line at {H:.4f} nats for steps 0..{max_steps}...")
     for step in range(0, max_steps + 1, 100):
-        wandb.log({"val/loss": H}, step=step)
+        wandb.log({"val/loss": H, "train/loss": H}, step=step)
 
     run.summary["dataset/conditional_entropy"] = H
     run.summary["dataset/marginal_entropy"]    = H_max
