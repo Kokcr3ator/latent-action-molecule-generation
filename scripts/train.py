@@ -107,7 +107,7 @@ class PolicyNetworkModelCfg:
     n_layer: int = 4
     n_head: int = 4
     n_embd: int = 384
-    dropout: float = 0.0
+    dropout: float = 0.1
     bias: bool = False
     num_latents: int = 128
 
@@ -155,7 +155,7 @@ class PolicyDistillCfg:
     tokenizer: TokenizerCfg = field(default_factory=TokenizerCfg)
     model: PolicyNetworkModelCfg = field(default_factory=PolicyNetworkModelCfg)
     training: TrainingCfg = field(default_factory=lambda: TrainingCfg(max_iters=20_000))
-    optim: OptimCfg = field(default_factory=OptimCfg)
+    optim: OptimCfg = field(default_factory=lambda: OptimCfg(weight_decay=0.1))
     wandb: WandbCfg = field(default_factory=lambda: WandbCfg(group="policydistillation"))
 
 
@@ -309,7 +309,6 @@ def main() -> None:
     elif isinstance(cfg, PolicyDistillCfg):
         loaders = PretrainPolicyLoader(
             controllable_gpt_path=cfg.controllable_gpt_path, dataset_path=save_path,
-            action_dataset_out_dir=f"data/processed/zinc",
             pad_token_id=tok.pad_token_id, batch_size=train_cfg.batch_size, seed=cfg.seed,
         )
 
