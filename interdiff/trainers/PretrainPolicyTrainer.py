@@ -15,7 +15,7 @@ from .base import TrainerBase
 from interdiff.models import ControllableGPT
 from interdiff.tokenise import tokens_to_smiles
 
-_LABEL_SMOOTHING = 0.1
+_LABEL_SMOOTHING = 0.0
 
 
 class PretrainPolicyTrainer(TrainerBase):
