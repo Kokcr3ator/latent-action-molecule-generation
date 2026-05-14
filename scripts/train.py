@@ -107,7 +107,7 @@ class PolicyNetworkModelCfg:
     n_layer: int = 6
     n_head: int = 8
     n_embd: int = 512
-    dropout: float = 0.3
+    dropout: float = 0.2
     bias: bool = False
     num_latents: int = 128
 
