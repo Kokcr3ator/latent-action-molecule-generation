@@ -48,7 +48,7 @@ echo "Using ${NUM_GPUS} GPU(s): ${GPU_IDS[*]}"
 _GPU_SLOT=0
 _PIDS=()
 
-_COMPILE_STAGGER=90  # seconds between launches to stagger torch.compile RAM spikes
+_COMPILE_STAGGER=30  # seconds between launches to stagger torch.compile RAM spikes
 
 _launch() {
   if [ "${NUM_GPUS}" -ge 2 ]; then

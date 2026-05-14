@@ -42,7 +42,7 @@ echo "Using ${NUM_GPUS} GPU(s): ${GPU_IDS[*]}"
 
 _GPU_SLOT=0
 _PIDS=()
-_COMPILE_STAGGER=90
+_COMPILE_STAGGER=30
 
 _launch() {
   if [ "${NUM_GPUS}" -ge 2 ]; then
