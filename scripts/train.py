@@ -311,6 +311,7 @@ def main() -> None:
             controllable_gpt_path=cfg.controllable_gpt_path, dataset_path=save_path,
             pad_token_id=tok.pad_token_id, batch_size=train_cfg.batch_size, seed=cfg.seed,
         )
+        logger.log({"dataset/conditional_entropy": loaders.conditional_entropy})
 
     trainer.fit(loaders.train_loader, loaders.val_loader)
 

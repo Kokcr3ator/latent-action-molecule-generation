@@ -6,7 +6,11 @@ import torch
 from torch.utils.data import Dataset, DataLoader, random_split
 
 from interdiff.io import _load_tensor_from_safetensors
+from interdiff.dataset_entropy import empirical_conditional_entropy
 from scripts.generate_actions import run_action_generation
+
+log = logging.getLogger(__name__)
+
 
 class PolicyPretrainDataset(Dataset):
     """Dataset for policy pretraining with token sequences and latent actions."""
@@ -30,6 +34,17 @@ class PolicyPretrainDataset(Dataset):
         if self.x.size(0) != self.y.size(0):
             raise ValueError(f"Number of samples in x ({self.x.size(0)}) and y ({self.y.size(0)}) do not match.")
 
+        log.info("Computing empirical conditional entropy H(A | context)...")
+        num_latents = int(self.y.max().item()) + 1
+        self.conditional_entropy = empirical_conditional_entropy(
+            tokens=self.x,
+            actions=self.y,
+            num_latents=num_latents,
+            pad_token_id=pad_token_id,
+        )
+        log.info(f"H(A | context) = {self.conditional_entropy:.4f} nats  "
+                 f"(max possible: {torch.tensor(num_latents).float().log().item():.4f})")
+
     def __len__(self) -> int:
         return self.x.size(0)
 
@@ -49,9 +64,12 @@ def build_dataloaders(
     shuffle_train: bool = True,
     drop_last: bool = False,
     pin_memory: bool = True,
-) -> Tuple[DataLoader, DataLoader]:
-    """Build training and validation DataLoaders for policy pretraining."""
+) -> Tuple[DataLoader, DataLoader, float]:
+    """Build training and validation DataLoaders for policy pretraining.
 
+    Returns:
+        (train_loader, val_loader, conditional_entropy)
+    """
     if not (0.0 < val_ratio < 1.0):
         raise ValueError("val_ratio must be in (0, 1).")
 
@@ -61,6 +79,7 @@ def build_dataloaders(
         batch_size=batch_size,
         pad_token_id=pad_token_id,
     )
+    conditional_entropy = dataset.conditional_entropy
 
     n_total = len(dataset)
     n_val = max(1, int(round(n_total * val_ratio)))
@@ -88,13 +107,14 @@ def build_dataloaders(
         pin_memory=pin_memory,
     )
 
-    return train_loader, val_loader
+    return train_loader, val_loader, conditional_entropy
+
 
 class PretrainPolicyLoader:
     """Data loader wrapper for policy distillation training."""
 
     def __init__(self, controllable_gpt_path: str, dataset_path: str, pad_token_id: int, batch_size: int, seed: int, val_ratio: float = 0.1):
-        self.train_loader, self.val_loader = build_dataloaders(
+        self.train_loader, self.val_loader, self.conditional_entropy = build_dataloaders(
             controllable_gpt_path=controllable_gpt_path,
             dataset_path=dataset_path,
             pad_token_id=pad_token_id,
