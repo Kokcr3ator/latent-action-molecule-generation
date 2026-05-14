@@ -34,7 +34,6 @@ import tyro
 
 from interdiff.dataset_entropy import empirical_conditional_entropy
 from interdiff.io import _load_tensor_from_safetensors
-from interdiff.io import seed_all
 from scripts.tokenise_dataset import run_tokenisation
 
 
@@ -52,7 +51,6 @@ class WandbCfg:
 
 @dataclass
 class _Common:
-    seed: int = 0
     data_smiles: str = "interdiff/data/zinc/zinc.txt"
     vocab_size: int = 2048
     context_length: int = 128
@@ -111,8 +109,6 @@ def main() -> None:
         Annotated[PolicyCfg, tyro.conf.subcommand("policy")],
     ])
 
-    seed_all(cfg.seed)
-
     _, dataset_path = run_tokenisation(
         data_smiles=cfg.data_smiles,
         vocab_size=cfg.vocab_size,
@@ -124,13 +120,13 @@ def main() -> None:
     if isinstance(cfg, GptCfg):
         actions     = tokens[:, 1:].clone()
         num_latents = int(tokens.max().item()) + 1
-        run_name    = f"entropy_lb_gpt_vocab{cfg.vocab_size}_seed{cfg.seed}"
+        run_name    = f"entropy_lb_gpt_vocab{cfg.vocab_size}"
     else:
         if not cfg.actions_path:
             raise ValueError("--actions-path is required in policy mode")
         actions     = _load_tensor_from_safetensors(cfg.actions_path).to(torch.long)
         num_latents = cfg.num_latents
-        run_name    = f"entropy_lb_policy_nlatents{num_latents}_seed{cfg.seed}"
+        run_name    = f"entropy_lb_policy_nlatents{num_latents}"
         log.info(f"Loaded actions {tuple(actions.shape)}")
 
     _run(
