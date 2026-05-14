@@ -81,8 +81,7 @@ def _push_wandb(H: float, num_latents: int, vocab_size: int,
         group=wandb_cfg.group,
         name=run_name,
         dir=wandb_cfg.dir or None,
-        config={"num_latents": num_latents, "conditional_entropy": H,
-                "tokenizer": {"vocab_size": vocab_size}},
+        config={"num_latents": num_latents, "conditional_entropy": H},
     )
     for step in range(0, max_steps + 1, 100):
         wandb.log({"val/loss": H, "train/loss": H}, step=step)
