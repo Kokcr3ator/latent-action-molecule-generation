@@ -11,13 +11,14 @@ Two modes:
           the pre-generated actions safetensors file and the codebook size.
 
 Usage:
-    # GPT lower bound
+    # GPT lower bound for all vocab sizes
     python -m scripts.log_action_entropy gpt \\
-        --seed 0 --wandb.group exp7_gpt_vocab_scaling
+        --vocab-sizes 128 512 1024 2048 4096 \\
+        --wandb.group exp7_gpt_vocab_scaling
 
     # Policy distillation lower bound
     python -m scripts.log_action_entropy policy \\
-        --seed 0 \\
+        --vocab-sizes 2048 \\
         --actions-path /path/to/actions_dataset_num_latent_actions_2048_vocab_size_2048.safetensors \\
         --num-latents  2048 \\
         --wandb.group  exp6_distillation_impact
@@ -27,7 +28,7 @@ from __future__ import annotations
 import logging
 import math
 from dataclasses import dataclass, field
-from typing import Annotated, Union
+from typing import Annotated, List, Union
 
 import torch
 import tyro
@@ -51,8 +52,8 @@ class WandbCfg:
 
 @dataclass
 class _Common:
+    vocab_sizes: List[int]                  # one W&B run per vocab size
     data_smiles: str = "interdiff/data/zinc/zinc.txt"
-    vocab_size: int = 2048
     context_length: int = 128
     pad_token_id: int = 0
     max_steps: int = 20_000
@@ -71,18 +72,8 @@ class PolicyCfg(_Common):
     num_latents: int = 2048
 
 
-def _run(tokens: torch.Tensor, actions: torch.Tensor, num_latents: int,
-         pad_token_id: int, max_steps: int, run_name: str, wandb_cfg: WandbCfg) -> None:
-    log.info("Computing H(A | S_{0:t})...")
-    H = empirical_conditional_entropy(
-        tokens=tokens,
-        actions=actions,
-        num_latents=num_latents,
-        pad_token_id=pad_token_id,
-    )
-    H_max = math.log(num_latents)
-    log.info(f"H(A | context) = {H:.4f} nats  (max = ln({num_latents}) = {H_max:.4f})")
-
+def _push_wandb(H: float, num_latents: int, vocab_size: int,
+                max_steps: int, run_name: str, wandb_cfg: WandbCfg) -> None:
     import wandb
     run = wandb.init(
         project=wandb_cfg.project,
@@ -91,17 +82,13 @@ def _run(tokens: torch.Tensor, actions: torch.Tensor, num_latents: int,
         name=run_name,
         dir=wandb_cfg.dir or None,
         config={"num_latents": num_latents, "conditional_entropy": H,
-                "tokenizer": {"vocab_size": cfg.vocab_size}},
+                "tokenizer": {"vocab_size": vocab_size}},
     )
-
-    log.info(f"Pushing horizontal line at {H:.4f} nats for steps 0..{max_steps}...")
     for step in range(0, max_steps + 1, 100):
         wandb.log({"val/loss": H, "train/loss": H}, step=step)
-
     run.summary["dataset/conditional_entropy"] = H
-    run.summary["dataset/marginal_entropy"]    = H_max
+    run.summary["dataset/marginal_entropy"]    = math.log(num_latents)
     wandb.finish()
-    log.info("Done.")
 
 
 def main() -> None:
@@ -110,31 +97,43 @@ def main() -> None:
         Annotated[PolicyCfg, tyro.conf.subcommand("policy")],
     ])
 
-    _, dataset_path = run_tokenisation(
-        data_smiles=cfg.data_smiles,
-        vocab_size=cfg.vocab_size,
-        context_length=cfg.context_length,
-    )
-    tokens = _load_tensor_from_safetensors(dataset_path).to(torch.long)
-    log.info(f"Tokenised dataset: {tuple(tokens.shape)}")
+    for vocab_size in cfg.vocab_sizes:
+        log.info(f"=== vocab_size={vocab_size} ===")
 
-    if isinstance(cfg, GptCfg):
-        actions     = tokens[:, 1:].clone()
-        num_latents = int(tokens.max().item()) + 1
-        run_name    = f"entropy_lb_gpt_vocab{cfg.vocab_size}"
-    else:
-        if not cfg.actions_path:
-            raise ValueError("--actions-path is required in policy mode")
-        actions     = _load_tensor_from_safetensors(cfg.actions_path).to(torch.long)
-        num_latents = cfg.num_latents
-        run_name    = f"entropy_lb_policy_nlatents{num_latents}"
-        log.info(f"Loaded actions {tuple(actions.shape)}")
+        _, dataset_path = run_tokenisation(
+            data_smiles=cfg.data_smiles,
+            vocab_size=vocab_size,
+            context_length=cfg.context_length,
+        )
+        tokens = _load_tensor_from_safetensors(dataset_path).to(torch.long)
+        log.info(f"Tokenised dataset: {tuple(tokens.shape)}")
 
-    _run(
-        tokens=tokens, actions=actions, num_latents=num_latents,
-        pad_token_id=cfg.pad_token_id, max_steps=cfg.max_steps,
-        run_name=run_name, wandb_cfg=cfg.wandb,
-    )
+        if isinstance(cfg, GptCfg):
+            actions     = tokens[:, 1:].clone()
+            num_latents = int(tokens.max().item()) + 1
+            run_name    = f"entropy_lb_gpt_vocab{vocab_size}"
+        else:
+            if not cfg.actions_path:
+                raise ValueError("--actions-path is required in policy mode")
+            actions     = _load_tensor_from_safetensors(cfg.actions_path).to(torch.long)
+            num_latents = cfg.num_latents
+            run_name    = f"entropy_lb_policy_nlatents{num_latents}_vocab{vocab_size}"
+            log.info(f"Loaded actions {tuple(actions.shape)}")
+
+        log.info("Computing H(A | S_{0:t})...")
+        H = empirical_conditional_entropy(
+            tokens=tokens,
+            actions=actions,
+            num_latents=num_latents,
+            pad_token_id=cfg.pad_token_id,
+        )
+        log.info(f"H(A | context) = {H:.4f} nats  (max = ln({num_latents}) = {math.log(num_latents):.4f})")
+
+        log.info(f"Pushing to W&B run '{run_name}'...")
+        _push_wandb(H=H, num_latents=num_latents, vocab_size=vocab_size,
+                    max_steps=cfg.max_steps, run_name=run_name, wandb_cfg=cfg.wandb)
+
+    log.info("Done.")
 
 
 if __name__ == "__main__":
