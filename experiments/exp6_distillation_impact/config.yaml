@@ -18,7 +18,7 @@ ckpt_root: /scratch/$USER/interdiff/ckpts        # where exp6 saves its own chec
 # --- Data / model ------------------------------------------------------------
 data_dir: interdiff/data/zinc/zinc.txt
 vocab_size: 2048
-num_latents_list: [2048]   # representative subset from exp3
+num_latents_list: [128, 512, 1024, 2048]   # representative subset from exp3
 
 # --- Training ----------------------------------------------------------------
 jobs_per_gpu: 2   # concurrent jobs per GPU
