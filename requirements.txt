@@ -1,5 +1,7 @@
 torch
 numpy
+pandas
+matplotlib
 tqdm
 pyyaml
 gymnasium
