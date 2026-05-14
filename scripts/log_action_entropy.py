@@ -1,26 +1,32 @@
-"""Compute the empirical conditional entropy H(A_t | S_{0:t}) for a ZINC dataset
-and push it to W&B as a horizontal reference line on the val/loss plot.
+"""Compute the empirical conditional entropy H(A_t | S_{0:t}) and push it to
+W&B as a horizontal reference line on the val/loss plot.
+
+H(A | context) is a property of a (tokens, actions) pair — it does not depend
+on any model, only on the action labels assigned to each molecule.  The actions
+are produced by a specific LAM (via vq_encode), so you need to provide both
+the tokenised dataset and the corresponding action dataset.
 
 Usage:
     python -m scripts.log_action_entropy \\
-        --controllable-gpt-path /path/to/ckpt \\
-        --wandb.group exp6_distillation_impact
+        --tokens-path  /path/to/dataset.safetensors \\
+        --actions-path /path/to/actions_dataset_num_latent_actions_2048_vocab_size_2048.safetensors \\
+        --num-latents  2048 \\
+        --wandb.group  exp6_distillation_impact
 
-The script logs val/loss = H at every step from 0 to --max-steps so the value
+The script logs val/loss = H at every 100 steps up to --max-steps so the value
 appears as a flat line when overlaid with policy distillation training curves.
 """
 from __future__ import annotations
 
 import logging
+import math
 from dataclasses import dataclass, field
 
 import torch
 import tyro
 
-from scripts.tokenise_dataset import run_tokenisation
-from scripts.generate_actions import run_action_generation
 from interdiff.dataset_entropy import empirical_conditional_entropy
-from interdiff.models import ControllableGPT
+from interdiff.io import _load_tensor_from_safetensors
 
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -37,11 +43,9 @@ class WandbCfg:
 
 @dataclass
 class Cfg:
-    controllable_gpt_path: str          # path to a pretrained ControllableGPT checkpoint
-    data_smiles: str = "interdiff/data/zinc/zinc.txt"
-    vocab_size: int = 2048
-    context_length: int = 128
-    batch_size: int = 2048
+    tokens_path: str                    # safetensors file with tokenised ZINC, shape [N, T]
+    actions_path: str                   # safetensors file with action indices, shape [N, T-1]
+    num_latents: int                    # codebook size used when generating the actions
     pad_token_id: int = 0
     max_steps: int = 20_000             # x-axis range for the horizontal line
     wandb: WandbCfg = field(default_factory=WandbCfg)
@@ -50,57 +54,36 @@ class Cfg:
 def main() -> None:
     cfg = tyro.cli(Cfg)
 
-    # ------------------------------------------------------------------ data
-    _, dataset_path = run_tokenisation(
-        data_smiles=cfg.data_smiles,
-        vocab_size=cfg.vocab_size,
-        context_length=cfg.context_length,
-    )
+    tokens  = _load_tensor_from_safetensors(cfg.tokens_path).to(torch.long)
+    actions = _load_tensor_from_safetensors(cfg.actions_path).to(torch.long)
+    log.info(f"Loaded tokens {tuple(tokens.shape)}, actions {tuple(actions.shape)}")
 
-    # ------------------------------------------------------------------ actions
-    log.info("Generating actions from LAM...")
-    cgpt = ControllableGPT.load(cfg.controllable_gpt_path)
-    num_latents = cgpt.num_latents
-    del cgpt  # free memory before generating actions
-
-    from interdiff.io import _load_tensor_from_safetensors
-    tokens = _load_tensor_from_safetensors(dataset_path).to(torch.long)
-
-    actions = run_action_generation(
-        controllable_gpt_path=cfg.controllable_gpt_path,
-        dataset_path=dataset_path,
-        batch_size=cfg.batch_size,
-        pad_token_id=cfg.pad_token_id,
-    )
-
-    # ------------------------------------------------------------------ entropy
     log.info("Computing H(A | S_{0:t})...")
     H = empirical_conditional_entropy(
         tokens=tokens,
         actions=actions,
-        num_latents=num_latents,
+        num_latents=cfg.num_latents,
         pad_token_id=cfg.pad_token_id,
     )
-    log.info(f"H(A | context) = {H:.4f} nats  (ln({num_latents}) = {torch.tensor(num_latents).float().log():.4f})")
+    H_max = math.log(cfg.num_latents)
+    log.info(f"H(A | context) = {H:.4f} nats  (max = ln({cfg.num_latents}) = {H_max:.4f})")
 
-    # ------------------------------------------------------------------ W&B
     import wandb
     run = wandb.init(
         project=cfg.wandb.project,
         entity=cfg.wandb.entity,
         group=cfg.wandb.group,
-        name=f"entropy_lb_nlatents{num_latents}",
+        name=f"entropy_lb_nlatents{cfg.num_latents}",
         dir=cfg.wandb.dir or None,
-        config={"num_latents": num_latents, "conditional_entropy": H},
+        config={"num_latents": cfg.num_latents, "conditional_entropy": H},
     )
 
-    # Log as a horizontal line by emitting the same value at every step
-    log.info(f"Pushing {cfg.max_steps} steps to W&B as a horizontal line at {H:.4f}...")
+    log.info(f"Pushing horizontal line at {H:.4f} nats for steps 0..{cfg.max_steps}...")
     for step in range(0, cfg.max_steps + 1, 100):
-        wandb.log({"val/loss": H, "step": step}, step=step)
+        wandb.log({"val/loss": H}, step=step)
 
     run.summary["dataset/conditional_entropy"] = H
-    run.summary["dataset/marginal_entropy"] = float(torch.tensor(num_latents).float().log())
+    run.summary["dataset/marginal_entropy"]    = H_max
     wandb.finish()
     log.info("Done.")
 
