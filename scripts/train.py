@@ -104,9 +104,9 @@ class ControllableGPTModelCfg:
 
 @dataclass
 class PolicyNetworkModelCfg:
-    n_layer: int = 6
-    n_head: int = 8
-    n_embd: int = 512
+    n_layer: int = 4
+    n_head: int = 4
+    n_embd: int = 384
     dropout: float = 0.2
     bias: bool = False
     num_latents: int = 128
