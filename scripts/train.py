@@ -4,6 +4,8 @@ Usage:
     python -m scripts.train pretrain-base [options]
     python -m scripts.train pretrain-controllable [options]
     python -m scripts.train policy-distill --controllable-gpt-path <path> [options]
+    python -m scripts.train pretrain-lam-staged [options]
+    python -m scripts.train pretrain-dynamics-staged --lam-checkpoint-path <path> [options]
 """
 import os
 import logging
@@ -15,7 +17,7 @@ import torch.optim.lr_scheduler
 import tyro
 
 from interdiff.models import GPT, ControllableGPT, PolicyNetwork
-from interdiff.trainers import GPTTrainer, ControllableGPTTrainer, PretrainPolicyTrainer
+from interdiff.trainers import GPTTrainer, ControllableGPTTrainer, LAMTrainer, DynamicsTrainer, PretrainPolicyTrainer
 from interdiff.trainers.base import TrainConfig
 from interdiff.data.GPTLoader import GPTLoader
 from interdiff.data.ControllableGPTLoader import ControllableGPTLoader
@@ -160,6 +162,35 @@ class PolicyDistillCfg:
     wandb: WandbCfg = field(default_factory=lambda: WandbCfg(group="policydistillation"))
 
 
+@dataclass
+class PretrainLAMStagedCfg:
+    """Stage-1 staged training: pretrain only the LAM (encoder + VQ + decoder)."""
+    seed: int = 42
+    data_smiles: str = "interdiff/data/zinc/zinc.txt"
+    ckpt_root: str = "/scratch/uceeepi/interdiff/ckpts"
+    resume: bool = False
+    tokenizer: TokenizerCfg = field(default_factory=TokenizerCfg)
+    model: ControllableGPTModelCfg = field(default_factory=ControllableGPTModelCfg)
+    training: TrainingCfg = field(default_factory=lambda: TrainingCfg(max_iters=20_000))
+    optim: OptimCfg = field(default_factory=OptimCfg)
+    wandb: WandbCfg = field(default_factory=lambda: WandbCfg(group="pretrain_lam_staged"))
+
+
+@dataclass
+class PretrainDynamicsStagedCfg:
+    """Stage-2 staged training: freeze a pretrained LAM, train only the dynamics model."""
+    lam_checkpoint_path: str  # required — path to a stage-1 ControllableGPT checkpoint
+    seed: int = 42
+    data_smiles: str = "interdiff/data/zinc/zinc.txt"
+    ckpt_root: str = "/scratch/uceeepi/interdiff/ckpts"
+    resume: bool = False
+    tokenizer: TokenizerCfg = field(default_factory=TokenizerCfg)
+    model: ControllableGPTModelCfg = field(default_factory=ControllableGPTModelCfg)
+    training: TrainingCfg = field(default_factory=lambda: TrainingCfg(max_iters=20_000))
+    optim: OptimCfg = field(default_factory=OptimCfg)
+    wandb: WandbCfg = field(default_factory=lambda: WandbCfg(group="pretrain_dynamics_staged"))
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -175,6 +206,10 @@ def _run_name(cfg) -> str:
         return f"pretrain_controllable_vocab{tok.vocab_size}_nlatent{cfg.model.num_latents}{norm_suffix}{horizon_suffix}_seed{cfg.seed}"
     if isinstance(cfg, PolicyDistillCfg):
         return f"policydistillation_nlatents{cfg.model.num_latents}_vocab{tok.vocab_size}_seed{cfg.seed}"
+    if isinstance(cfg, PretrainLAMStagedCfg):
+        return f"pretrain_lam_staged_vocab{tok.vocab_size}_nlatent{cfg.model.num_latents}_seed{cfg.seed}"
+    if isinstance(cfg, PretrainDynamicsStagedCfg):
+        return f"pretrain_dynamics_staged_vocab{tok.vocab_size}_nlatent{cfg.model.num_latents}_seed{cfg.seed}"
     raise ValueError(f"Unknown config type: {type(cfg)}")
 
 
@@ -207,6 +242,8 @@ def main() -> None:
         Annotated[PretrainBaseCfg, tyro.conf.subcommand("pretrain-base")],
         Annotated[PretrainControllableCfg, tyro.conf.subcommand("pretrain-controllable")],
         Annotated[PolicyDistillCfg, tyro.conf.subcommand("policy-distill")],
+        Annotated[PretrainLAMStagedCfg, tyro.conf.subcommand("pretrain-lam-staged")],
+        Annotated[PretrainDynamicsStagedCfg, tyro.conf.subcommand("pretrain-dynamics-staged")],
     ])
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -256,6 +293,17 @@ def main() -> None:
             num_latents=m.num_latents,
             pad_token_id=tok.pad_token_id, bos_token_id=tok.bos_token_id, eos_token_id=tok.eos_token_id,
         )
+    elif isinstance(cfg, (PretrainLAMStagedCfg, PretrainDynamicsStagedCfg)):
+        model = ControllableGPT(
+            vocab_size=tok.vocab_size, n_layer=m.n_layer, n_head=m.n_head, n_embd=m.n_embd,
+            dropout=m.dropout, bias=m.bias, context_length=tok.context_length,
+            lm_head_out_size=tok.vocab_size,
+            pad_token_id=tok.pad_token_id, bos_token_id=tok.bos_token_id, eos_token_id=tok.eos_token_id,
+            latent_action_dim=m.latent_action_dim, num_latents=m.num_latents,
+            entropy_weight=m.entropy_weight, vq_beta=m.vq_beta,
+            norm_mode=m.norm_mode, norm_penalty_weight=m.norm_penalty_weight,
+            horizon=m.horizon,
+        )
 
     o = cfg.optim
     optimizer = adam_w(model=model, learning_rate=o.lr, beta1=o.beta1, beta2=o.beta2,
@@ -273,11 +321,15 @@ def main() -> None:
         PretrainBaseCfg: "pretrain",
         PretrainControllableCfg: "pretrain",
         PolicyDistillCfg: "distillation",
+        PretrainLAMStagedCfg: "pretrain",
+        PretrainDynamicsStagedCfg: "pretrain",
     }[type(cfg)]
     method = {
         PretrainBaseCfg: "gpt",
         PretrainControllableCfg: "cgpt",
         PolicyDistillCfg: "cgpt",
+        PretrainLAMStagedCfg: "cgpt",
+        PretrainDynamicsStagedCfg: "cgpt",
     }[type(cfg)]
     log_run_setup(logger, {**asdict(cfg), "stage": stage, "method": method}, model=model)
 
@@ -296,6 +348,13 @@ def main() -> None:
         trainer = PretrainPolicyTrainer(model=model, optimizer=optimizer, scheduler=scheduler,
                                         logger=logger, train_cfg=train_cfg,
                                         controllable_gpt_path=cfg.controllable_gpt_path)
+    elif isinstance(cfg, PretrainLAMStagedCfg):
+        trainer = LAMTrainer(model=model, optimizer=optimizer, scheduler=scheduler,
+                             logger=logger, train_cfg=train_cfg)
+    elif isinstance(cfg, PretrainDynamicsStagedCfg):
+        trainer = DynamicsTrainer(model=model, optimizer=optimizer, scheduler=scheduler,
+                                  logger=logger, train_cfg=train_cfg,
+                                  lam_checkpoint_path=cfg.lam_checkpoint_path)
 
     if cfg.resume:
         resume_path = os.path.join(ckpt_path, "best.pt")
@@ -315,6 +374,9 @@ def main() -> None:
             pad_token_id=tok.pad_token_id, batch_size=train_cfg.batch_size, seed=cfg.seed,
         )
         logger.log({"dataset/conditional_entropy": loaders.conditional_entropy})
+    elif isinstance(cfg, (PretrainLAMStagedCfg, PretrainDynamicsStagedCfg)):
+        loaders = ControllableGPTLoader(dataset_path=save_path,
+                                        batch_size=train_cfg.batch_size, seed=cfg.seed)
 
     trainer.fit(loaders.train_loader, loaders.val_loader)
 

@@ -1,0 +1,35 @@
+# =============================================================================
+# Experiment 9 — Staged LOM training (GENIE-style two-stage pretraining)
+#
+# Research question:
+#   Does training the LAM and dynamics model in two separate stages (LAM first,
+#   then frozen-LAM dynamics) improve convergence or final quality compared to
+#   the joint training in exp8?
+#
+# Stages:
+#   1. Pretrain LAM only (encoder + VQ + decoder).
+#   2. Freeze LAM, pretrain dynamics model on fixed codebook indices.
+#   3. Policy distillation from the fully trained ControllableGPT.
+# =============================================================================
+
+# --- Paths -------------------------------------------------------------------
+data_dir: interdiff/data/zinc/zinc.txt
+ckpt_root: /scratch/$USER/interdiff/ckpts_lom_staged
+
+# --- Model -------------------------------------------------------------------
+vocab_size: 2048
+num_latents: 128
+horizon: -1  # forward context window (-1 = full future, k >= 0 limits to x_{t+2}..x_{t+k+2})
+
+# --- Training ----------------------------------------------------------------
+batch_size: 2048
+seeds: [0, 1, 2]
+lam_iters: 20_000
+dynamics_iters: 20_000
+distillation_iters: 20_000
+
+# --- Logging -----------------------------------------------------------------
+wandb_project: interdiff
+wandb_entity: latent-action-interdiff
+wandb_group: exp9_lom_staged
+wandb_dir: /scratch/$USER/interdiff/wandb
