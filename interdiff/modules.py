@@ -97,6 +97,7 @@ class LatentActionModelConfig:
     vq_beta: float = 0.25
     norm_mode: str = "none"
     norm_penalty_weight: float = 1.0
+    horizon: int = -1  # forward context window for action token (-1 = full future)
 
 class SerialisableModule(nn.Module):
     """Base class for serializable PyTorch modules.
@@ -180,89 +181,68 @@ class LayerNorm(SerialisableModule):
 
 
 class CausalSelfAttention(SerialisableModule):
-    """Multi-head causal self-attention layer.
-    
-    Implements efficient causal self-attention with optional Flash Attention support.
-    
+    """Multi-head self-attention supporting causal and bidirectional modes.
+
     Args:
-        config: Transformer configuration containing model dimensions and settings.
+        config: Transformer configuration.
+        causal: If True (default) apply a causal mask; if False run full
+                bidirectional attention (custom attn_mask may still be passed).
     """
 
-    def __init__(self, config: TransformerConfig):
+    def __init__(self, config: TransformerConfig, causal: bool = True):
         super().__init__()
         assert config.n_embd % config.n_head == 0
-        # key, query, value projections for all heads, but in a batch
         self.c_attn = nn.Linear(config.n_embd, 3 * config.n_embd, bias=config.bias)
-        # output projection
         self.c_proj = nn.Linear(config.n_embd, config.n_embd, bias=config.bias)
-        # regularization
         self.attn_dropout = nn.Dropout(config.dropout)
         self.resid_dropout = nn.Dropout(config.dropout)
         self.n_head = config.n_head
         self.n_embd = config.n_embd
         self.dropout = config.dropout
-        # flash attention make GPU go brrrrr but support is only in PyTorch >= 2.0
+        self.causal = causal
         self.flash = hasattr(torch.nn.functional, "scaled_dot_product_attention")
         if not self.flash:
-            print(
-                "WARNING: using slow attention. Flash Attention requires PyTorch >= 2.0"
-            )
-            # causal mask to ensure that attention is only applied to the left in the input sequence
-            self.register_buffer(
-                "bias",
-                torch.tril(torch.ones(config.context_length, config.context_length)).view(
-                    1, 1, config.context_length, config.context_length
-                ),
-            )
+            print("WARNING: using slow attention. Flash Attention requires PyTorch >= 2.0")
+            if causal:
+                self.register_buffer(
+                    "bias",
+                    torch.tril(torch.ones(config.context_length, config.context_length)).view(
+                        1, 1, config.context_length, config.context_length
+                    ),
+                )
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Apply causal self-attention.
-        
+    def forward(self, x: torch.Tensor, attn_mask: torch.Tensor | None = None) -> torch.Tensor:
+        """Apply self-attention.
+
         Args:
-            x: Input tensor of shape (batch_size, seq_len, n_embd).
-            
-        Returns:
-            Output tensor of shape (batch_size, seq_len, n_embd).
+            x: (batch_size, seq_len, n_embd)
+            attn_mask: optional additive mask broadcastable to (B, n_head, T, T).
+                       Only used when causal=False.
         """
-        B, T, C = (
-            x.size()
-        )  # batch size, sequence length, embedding dimensionality (n_embd)
+        B, T, C = x.size()
 
-        # calculate query, key, values for all heads in batch and move head forward to be the batch dim
         q, k, v = self.c_attn(x).split(self.n_embd, dim=2)
-        k = k.view(B, T, self.n_head, C // self.n_head).transpose(
-            1, 2
-        )  # (B, nh, T, hs)
-        q = q.view(B, T, self.n_head, C // self.n_head).transpose(
-            1, 2
-        )  # (B, nh, T, hs)
-        v = v.view(B, T, self.n_head, C // self.n_head).transpose(
-            1, 2
-        )  # (B, nh, T, hs)
+        k = k.view(B, T, self.n_head, C // self.n_head).transpose(1, 2)
+        q = q.view(B, T, self.n_head, C // self.n_head).transpose(1, 2)
+        v = v.view(B, T, self.n_head, C // self.n_head).transpose(1, 2)
 
-        # causal self-attention; Self-attend: (B, nh, T, hs) x (B, nh, hs, T) -> (B, nh, T, T)
         if self.flash:
-            # efficient attention using Flash Attention CUDA kernels
             y = torch.nn.functional.scaled_dot_product_attention(
-                q,
-                k,
-                v,
-                attn_mask=None,
+                q, k, v,
+                attn_mask=attn_mask if not self.causal else None,
                 dropout_p=self.dropout if self.training else 0,
-                is_causal=True,
+                is_causal=self.causal,
             )
         else:
-            # manual implementation of attention
             att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
-            att = att.masked_fill(self.bias[:, :, :T, :T] == 0, float("-inf"))  # type: ignore
+            if self.causal:
+                att = att.masked_fill(self.bias[:, :, :T, :T] == 0, float("-inf"))
+            if attn_mask is not None and not self.causal:
+                att = att + attn_mask
             att = F.softmax(att, dim=-1)
             att = self.attn_dropout(att)
-            y = att @ v  # (B, nh, T, T) x (B, nh, T, hs) -> (B, nh, T, hs)
-        y = (
-            y.transpose(1, 2).contiguous().view(B, T, C)
-        )  # re-assemble all head outputs side by side
-
-        # output projection
+            y = att @ v
+        y = y.transpose(1, 2).contiguous().view(B, T, C)
         y = self.resid_dropout(self.c_proj(y))
         return y
 
@@ -300,73 +280,72 @@ class MLP(SerialisableModule):
 
 
 class TransformerBlock(SerialisableModule):
-    """Single transformer block with attention and feedforward layers.
-    
-    Uses pre-normalization architecture (LayerNorm before attention/MLP).
-    
-    Args:
-        config: Transformer configuration containing model dimensions and settings.
-    """
-    def __init__(self, config: TransformerConfig):
+    """Single transformer block with attention and feedforward layers."""
+
+    def __init__(self, config: TransformerConfig, causal: bool = True):
         super().__init__()
         self.ln_1 = LayerNorm(config.n_embd, bias=config.bias)
-        self.attn = CausalSelfAttention(config)
+        self.attn = CausalSelfAttention(config, causal=causal)
         self.ln_2 = LayerNorm(config.n_embd, bias=config.bias)
         self.mlp = MLP(config)
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Apply transformer block transformation.
-        
-        Args:
-            x: Input tensor of shape (batch_size, seq_len, n_embd).
-            
-        Returns:
-            Output tensor of shape (batch_size, seq_len, n_embd).
-        """
-        x = x + self.attn(self.ln_1(x))
+    def forward(self, x: torch.Tensor, attn_mask: torch.Tensor | None = None) -> torch.Tensor:
+        x = x + self.attn(self.ln_1(x), attn_mask=attn_mask)
         x = x + self.mlp(self.ln_2(x))
         return x
 
 
 class TransformerEncoder(SerialisableModule):
     """Transformer encoder with token and position embeddings.
-    
+
     Args:
-        config: Transformer configuration containing model dimensions and settings.
+        config: Transformer configuration.
+        causal: If True (default) use causal attention; False for bidirectional.
     """
-    def __init__(self, config: TransformerConfig):
+
+    def __init__(self, config: TransformerConfig, causal: bool = True):
         super().__init__()
         self.config = config
+        self.causal = causal
         self.wte = nn.Embedding(config.vocab_size, config.n_embd)
         self.wpe = nn.Embedding(config.context_length, config.n_embd)
         self.drop = nn.Dropout(config.dropout)
         self.h = nn.ModuleList(
-            [TransformerBlock(config) for _ in range(config.n_layer)]
+            [TransformerBlock(config, causal=causal) for _ in range(config.n_layer)]
         )
         self.ln_f = LayerNorm(config.n_embd, bias=config.bias)
 
-    def forward(self, idx: torch.Tensor) -> torch.Tensor:
-        """Encode token sequences.
-        
+    def forward(
+        self,
+        idx: torch.Tensor | None = None,
+        input_embeds: torch.Tensor | None = None,
+        attn_mask: torch.Tensor | None = None,
+    ) -> torch.Tensor:
+        """Encode token sequences or pre-computed embeddings.
+
         Args:
-            idx: Token indices of shape (batch_size, seq_len).
-            
-        Returns:
-            Encoded representations of shape (batch_size, seq_len, n_embd).
+            idx: Token indices (batch, seq_len). Mutually exclusive with input_embeds.
+            input_embeds: Pre-computed embeddings (batch, seq_len, n_embd). When
+                provided, positional embeddings are added based on sequence position.
+            attn_mask: Additive attention mask broadcastable to (B, n_head, T, T).
+                       Passed through to each attention layer.
         """
-        device = idx.device
-        b, t = idx.size()
-        assert (
-            t <= self.config.context_length
-        ), f"Cannot forward sequence of length {t}, block size is only {self.config.context_length}"
-        pos = torch.arange(0, t, dtype=torch.long, device=device)  # (t)
-        tok_emb = self.wte(idx)  # (b, t, n_embd)
-        pos_emb = self.wpe(pos)  # (t, n_embd)
-        x = self.drop(tok_emb + pos_emb)
+        if input_embeds is not None:
+            b, t, _ = input_embeds.shape
+            device = input_embeds.device
+            pos = torch.arange(0, t, dtype=torch.long, device=device)
+            x = self.drop(input_embeds + self.wpe(pos))
+        else:
+            device = idx.device
+            b, t = idx.size()
+            assert t <= self.config.context_length, \
+                f"Cannot forward sequence of length {t}, block size is only {self.config.context_length}"
+            pos = torch.arange(0, t, dtype=torch.long, device=device)
+            x = self.drop(self.wte(idx) + self.wpe(pos))
+
         for block in self.h:
-            x = block(x)
-        x = self.ln_f(x)
-        return x
+            x = block(x, attn_mask=attn_mask)
+        return self.ln_f(x)
 
 
 class VectorQuantizer(SerialisableModule):

@@ -1,0 +1,34 @@
+# =============================================================================
+# Experiment 8 — LOM architecture: bidirectional encoder + masked action token
+#
+# Research question:
+#   Does the new GENIE-style LAM (bidirectional encoder, content-free action
+#   token, x_{t+1} masked from action position) converge, and how does its
+#   pretraining and distillation loss compare to the old causal-encoder LAM?
+#
+# Stages: pretrain ControllableGPT → policy distillation.
+# RL fine-tuning is deferred until pretraining + PD quality is confirmed.
+#
+# Checkpoints go to a separate root (_lom suffix) to avoid colliding with
+# old causal-LAM checkpoints that share the same run-name pattern.
+# =============================================================================
+
+# --- Paths -------------------------------------------------------------------
+data_dir: interdiff/data/zinc/zinc.txt
+ckpt_root: /scratch/$USER/interdiff/ckpts_lom
+
+# --- Model -------------------------------------------------------------------
+vocab_size: 2048
+num_latents: 128
+
+# --- Training ----------------------------------------------------------------
+batch_size: 2048
+seeds: [0, 1, 2]
+controllable_iters: 20_000
+distillation_iters: 20_000
+
+# --- Logging -----------------------------------------------------------------
+wandb_project: interdiff
+wandb_entity: latent-action-interdiff
+wandb_group: exp8_lom
+wandb_dir: /scratch/$USER/interdiff/wandb

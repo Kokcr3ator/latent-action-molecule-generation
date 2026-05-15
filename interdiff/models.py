@@ -81,7 +81,7 @@ class GPT(SerialisableModule):
         
         self.lm_head_out_size = lm_head_out_size
         self.config = config
-        self.encoder = TransformerEncoder(self.config)
+        self.encoder = TransformerEncoder(self.config, causal=True)
         self.lm_head = nn.Linear(config.n_embd, lm_head_out_size, bias=False)
         # self.encoder.wte.weight = (
         #     self.lm_head.weight
@@ -100,20 +100,14 @@ class GPT(SerialisableModule):
         print("number of parameters: %.2fM" % (self.get_num_params() / 1e6,))
 
     def forward(
-        self, idx: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Forward pass through the model.
-        
-        Args:
-            idx: Token indices of shape (batch_size, seq_len).
-            
-        Returns:
-            Tuple containing:
-                - logits: Token predictions of shape (batch_size, seq_len, vocab_size).
-                - z: Hidden states of shape (batch_size, seq_len, n_embd).
-        """
-        z = self.encoder(idx)  # (b, t, n_embd)
+        self,
+        idx: torch.Tensor | None = None,
+        input_embeds: torch.Tensor | None = None,
+        attn_mask: torch.Tensor | None = None,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Forward pass through the model."""
+        z = self.encoder(idx=idx, input_embeds=input_embeds, attn_mask=attn_mask)
         logits = self.lm_head(z)
-
         return logits, z
 
     @torch.no_grad()
@@ -273,13 +267,12 @@ class LatentActionModel(SerialisableModule):
                  entropy_weight: float = 0.01,
                  vq_beta: float = 0.25,
                  norm_mode: str = "none",
-                 norm_penalty_weight: float = 1.0):
+                 norm_penalty_weight: float = 1.0,
+                 horizon: int = -1):
 
-        # encoder is future dependent for learning and past dependent for finetuning
-        # after policy distillation
-
-        # Vector quantizer
         super().__init__()
+
+        self.horizon = horizon
 
         t_conf = TransformerConfig(
             vocab_size=vocab_size,
@@ -311,34 +304,97 @@ class LatentActionModel(SerialisableModule):
             setattr(self, k, v)
         self.norm_mode = norm_mode
         self.norm_penalty_weight = norm_penalty_weight
+        self.mask_token_id = 2  # [MASK] is token id 2 in our tokenizer
 
         self.vq = VectorQuantizer(**kwargs_vq, norm_mode=norm_mode, norm_penalty_weight=norm_penalty_weight)
 
-        # Encoder and Decoder
-        self.encoder = GPT(**kwargs_gpt)
+        # Bidirectional encoder (sees full context including future) and causal decoder
+        self.encoder = TransformerEncoder(t_conf, causal=False)
+        self.encoder_proj = nn.Linear(t_conf.n_embd, t_conf.n_embd, bias=False)
         self.decoder = GPT(**kwargs_gpt)
 
         self.codebook = self.vq.codebook
 
+    def _build_lam_attn_mask(self, T: int, device: torch.device) -> torch.Tensor:
+        """Additive mask for the interleaved [x_0, a_0, x_1, a_1, ..., x_{T-1}] sequence.
+
+        Full bidirectional attention between all positions, with two exceptions:
+          1. a_t cannot attend to x_{t+1} (the token being predicted).
+          2. If self.horizon >= 0, a_t additionally cannot attend to tokens or
+             action slots beyond position t+self.horizon+2 (i.e. x_{t+k+3} and
+             a_{t+k+2} onwards).
+
+        This means past and future action slots ARE included in each action's
+        context, consistent with treating the sequence as a proper interleaved
+        trajectory of states and actions.
+        Returns an additive mask: 0.0 = attend, -inf = block.
+        """
+        k = self.horizon
+        L = 2 * T - 1
+        mask = torch.zeros((L, L), device=device)  # full attention by default
+
+        for t in range(T - 1):
+            # a_t (odd position 2t+1) cannot see x_{t+1} (even position 2t+2)
+            mask[2 * t + 1, 2 * t + 2] = float('-inf')
+
+            if k >= 0:
+                # block everything strictly beyond the horizon (tokens AND action slots)
+                # last allowed position: x_{t+k+2} at even position 2(t+k+2)
+                #                       a_{t+k+1} at odd  position 2(t+k+1)+1 = 2t+2k+3
+                first_blocked = 2 * (t + k + 2) + 1  # one step past the last allowed position
+                if first_blocked < L:
+                    mask[2 * t + 1, first_blocked:] = float('-inf')
+
+        return mask  # (2T-1, 2T-1)
+
     def vq_encode(self, tokens: torch.Tensor) -> Tuple[torch.Tensor, dict, torch.Tensor]:
-        """Encode tokens into quantized latent actions.
-        
+        """Encode tokens into quantized latent actions using GENIE-style bidirectional encoding.
+
+        Builds the interleaved sequence [x_0, a_0, x_1, a_1, ..., x_{T-1}] of length
+        2T-1, where a_t is the learnable action_token (a content-free query) placed at
+        the position of x_{t+1}.  A custom attention mask prevents a_t from attending
+        to x_{t+1}, forcing the code to be inferred from context only.
+
         Args:
             tokens: Token indices of shape (batch_size, seq_len).
-            
+
         Returns:
-            Tuple containing:
-                - z_q: Quantized actions of shape (batch_size, seq_len-1, latent_action_dim).
-                - vq_loss_dict: Dictionary containing individual VQ loss components.
-                - indices: Codebook indices of shape (batch_size, seq_len-1).
+            Tuple of:
+                - z_q:         (batch_size, seq_len-1, latent_action_dim) quantized actions.
+                - vq_loss_dict: dict of individual VQ loss components.
+                - indices:     (batch_size, seq_len-1) codebook indices.
         """
         B, T = tokens.shape
+        device = tokens.device
+        enc = self.encoder  # bidirectional TransformerEncoder
 
-        _, z = self.encoder(tokens)  # (B, T, model_dim)
-        # Get latent action for all future frames
-        z = z[:, 1:, :]  # (B, T-1, model_dim) — action at t encodes info about token t+1
-        # Quantize only the latent action tokens
-        z_flat = z.reshape(B * (T - 1), -1)  # (B*(T-1), model_dim)
+        # 1. Token embeddings; action slots use the [MASK] token embedding (id=2)
+        tok_emb = enc.wte(tokens)                                                        # (B, T,   n_embd)
+        mask_ids = torch.full((B, T - 1), self.mask_token_id, dtype=torch.long, device=device)
+        act_emb = enc.wte(mask_ids)                                                      # (B, T-1, n_embd)
+
+        # 2. Interleave: even positions = tokens, odd positions = action tokens
+        L = 2 * T - 1
+        interleaved = tok_emb.new_empty(B, L, self.n_embd)
+        interleaved[:, 0::2, :] = tok_emb   # x_0, x_1, ..., x_{T-1}
+        interleaved[:, 1::2, :] = act_emb   # a_0, a_1, ..., a_{T-2}
+
+        # Positional embeddings: pair (x_t, a_t) shares natural position t
+        pos = torch.arange(T, device=device).repeat_interleave(2)[:L]  # (2T-1,)
+        interleaved = enc.drop(interleaved + enc.wpe(pos))
+
+        # 3. Build attention mask and run bidirectional transformer
+        attn_mask = self._build_lam_attn_mask(T, device)
+        x = interleaved
+        for block in enc.h:
+            x = block(x, attn_mask=attn_mask)
+        x = enc.ln_f(x)
+
+        # 4. Extract action representations at odd positions, project, then VQ
+        z_actions = x[:, 1::2, :]                         # (B, T-1, n_embd)
+        z_actions = self.encoder_proj(z_actions)
+
+        z_flat = z_actions.reshape(B * (T - 1), -1)
         z_q, vq_loss_dict, indices = self.vq(z_flat)
         z_q = z_q.reshape(B, T - 1, self.latent_action_dim)
         indices = indices.reshape(B, T - 1)
@@ -489,7 +545,8 @@ class ControllableGPT(SerialisableModule):
                  entropy_weight: float = 0.01,
                  vq_beta: float = 0.25,
                  norm_mode: str = "none",
-                 norm_penalty_weight: float = 1.0):
+                 norm_penalty_weight: float = 1.0,
+                 horizon: int = -1):
 
         super().__init__()
         lam_config = LatentActionModelConfig(vocab_size=vocab_size,
@@ -508,7 +565,8 @@ class ControllableGPT(SerialisableModule):
                                      entropy_weight=entropy_weight,
                                      vq_beta=vq_beta,
                                      norm_mode=norm_mode,
-                                     norm_penalty_weight=norm_penalty_weight)
+                                     norm_penalty_weight=norm_penalty_weight,
+                                     horizon=horizon)
 
         self.lam = LatentActionModel(**lam_config.__dict__)
 

@@ -100,6 +100,7 @@ class ControllableGPTModelCfg:
     vq_beta: float = 0.25
     norm_mode: str = "none"
     norm_penalty_weight: float = 1.0
+    horizon: int = -1  # forward context window (-1 = full future, k >= 0 limits to x_{t+2}..x_{t+k+2})
 
 
 @dataclass
@@ -170,7 +171,8 @@ def _run_name(cfg) -> str:
     if isinstance(cfg, PretrainControllableCfg):
         norm = cfg.model.norm_mode
         norm_suffix = f"_norm{norm}" if norm != "none" else ""
-        return f"pretrain_controllable_vocab{tok.vocab_size}_nlatent{cfg.model.num_latents}{norm_suffix}_seed{cfg.seed}"
+        horizon_suffix = f"_k{cfg.model.horizon}" if cfg.model.horizon >= 0 else ""
+        return f"pretrain_controllable_vocab{tok.vocab_size}_nlatent{cfg.model.num_latents}{norm_suffix}{horizon_suffix}_seed{cfg.seed}"
     if isinstance(cfg, PolicyDistillCfg):
         return f"policydistillation_nlatents{cfg.model.num_latents}_vocab{tok.vocab_size}_seed{cfg.seed}"
     raise ValueError(f"Unknown config type: {type(cfg)}")
@@ -245,6 +247,7 @@ def main() -> None:
             latent_action_dim=m.latent_action_dim, num_latents=m.num_latents,
             entropy_weight=m.entropy_weight, vq_beta=m.vq_beta,
             norm_mode=m.norm_mode, norm_penalty_weight=m.norm_penalty_weight,
+            horizon=m.horizon,
         )
     elif isinstance(cfg, PolicyDistillCfg):
         model = PolicyNetwork(
