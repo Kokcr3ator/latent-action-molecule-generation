@@ -474,6 +474,62 @@ def figure_combined_scaling(out_dir: str, samples: int, force_fetch: bool) -> No
 
 
 # ---------------------------------------------------------------------------
+# Figure 4: Policy distillation vs GPT — val loss comparison
+# ---------------------------------------------------------------------------
+
+def figure_distillation_vs_gpt(out_dir: str, samples: int, force_fetch: bool) -> None:
+    print("Figure 4 — Policy distillation vs GPT val loss (policydistillation + exp7)...")
+
+    # -- GPT runs (reuse fig1 cache) --
+    cache_gpt = _cache_path(out_dir, "fig1_gpt_vocab_scaling")
+    if not force_fetch and os.path.exists(cache_gpt):
+        gpt_dfs = _load_cache(cache_gpt)
+    else:
+        runs = fetch_runs("exp7_gpt_vocab_scaling")
+        runs = [r for r in runs if re.match(r"pretrain_base_vocab\d+_seed\d+", r.name)]
+        gpt_dfs: dict[int, list[pd.DataFrame]] = {}
+        for run in runs:
+            m = re.search(r"pretrain_base_vocab(\d+)_seed\d+", run.name)
+            if not m:
+                continue
+            gpt_dfs.setdefault(int(m.group(1)), []).append(
+                run_history(run, "train/loss", "val/loss", samples=samples))
+        if not gpt_dfs:
+            print("  no GPT runs found — skipping")
+            return
+        _save_cache(cache_gpt, gpt_dfs)
+
+    # -- Policy distillation runs --
+    cache_dist = _cache_path(out_dir, "fig4_policy_distillation")
+    if not force_fetch and os.path.exists(cache_dist):
+        dist_dfs = _load_cache(cache_dist)
+    else:
+        runs = fetch_runs("exp6_distillation_impact")
+        runs = [r for r in runs if re.match(r"policydistillation_nlatents\d+_vocab\d+_seed\d+", r.name)]
+        dist_dfs: dict[int, list[pd.DataFrame]] = {}
+        for run in runs:
+            m = re.search(r"nlatents(\d+)_vocab\d+_seed\d+", run.name)
+            if not m:
+                continue
+            dist_dfs.setdefault(int(m.group(1)), []).append(
+                run_history(run, "train/loss", "val/loss", samples=samples))
+        if not dist_dfs:
+            print("  no policy distillation runs found — skipping")
+            return
+        _save_cache(cache_dist, dist_dfs)
+
+    series = [
+        (*_min_val_stats(gpt_dfs),  PALETTE[0], "GPT (vocab size)"),
+        (*_min_val_stats(dist_dfs), PALETTE[1], "Policy distillation (codebook size)"),
+    ]
+    plot_combined_scaling_curve(
+        series=series,
+        title="Policy distillation vs GPT: min val loss vs size",
+        out_stem=os.path.join(out_dir, "fig4_distillation_vs_gpt"),
+    )
+
+
+# ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
 
@@ -485,13 +541,21 @@ def main() -> None:
                         help="W&B history sample points per run (default: 500)")
     parser.add_argument("--force-fetch", action="store_true",
                         help="Re-fetch from W&B even when a local cache exists")
+    parser.add_argument("--figure", type=int, default=None,
+                        help="Run only this figure number (1–4); omit to run all")
     args = parser.parse_args()
 
     Path(args.out_dir).mkdir(parents=True, exist_ok=True)
 
-    figure_gpt_vocab_scaling(args.out_dir, args.samples, args.force_fetch)
-    figure_cgpt_codebook_scaling(args.out_dir, args.samples, args.force_fetch)
-    figure_combined_scaling(args.out_dir, args.samples, args.force_fetch)
+    figs = {
+        1: lambda: figure_gpt_vocab_scaling(args.out_dir, args.samples, args.force_fetch),
+        2: lambda: figure_cgpt_codebook_scaling(args.out_dir, args.samples, args.force_fetch),
+        3: lambda: figure_combined_scaling(args.out_dir, args.samples, args.force_fetch),
+        4: lambda: figure_distillation_vs_gpt(args.out_dir, args.samples, args.force_fetch),
+    }
+    to_run = [args.figure] if args.figure else sorted(figs)
+    for n in to_run:
+        figs[n]()
 
     print("Done.")
 

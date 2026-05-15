@@ -256,7 +256,7 @@ class LatentActionModel(SerialisableModule):
         entropy_weight: Weight for entropy regularization.
         vq_beta: Beta parameter for VQ commitment loss.
     """
-    def __init__(self, 
+    def __init__(self,
                  vocab_size: int = 2048,
                  n_layer: int = 6,
                  n_head: int = 6,
@@ -336,7 +336,7 @@ class LatentActionModel(SerialisableModule):
 
         _, z = self.encoder(tokens)  # (B, T, model_dim)
         # Get latent action for all future frames
-        z = z[:, 1:, :]  # (B, T-1, model_dim) -> the action at time t encodes info about token at time t+1
+        z = z[:, 1:, :]  # (B, T-1, model_dim) — action at t encodes info about token t+1
         # Quantize only the latent action tokens
         z_flat = z.reshape(B * (T - 1), -1)  # (B*(T-1), model_dim)
         z_q, vq_loss_dict, indices = self.vq(z_flat)
@@ -379,19 +379,6 @@ class LatentActionModel(SerialisableModule):
         actions, vq_loss_dict, _ = self.vq_encode(tokens)
         logits = self.decode(tokens[..., :-1], actions) # exclude the last token for prediction (B, T-1)
         return logits, actions, vq_loss_dict
-
-class LongHorizonLatentActionModel(LatentActionModel):
-    """Long-horizon variant of Latent Action Model (not yet implemented).
-    
-    Args:
-        *args: Variable length argument list.
-        **kwargs: Arbitrary keyword arguments.
-        
-    Raises:
-        NotImplementedError: This model is not yet implemented.
-    """
-    def __init__(self, *args, **kwargs):
-        raise NotImplementedError("This model is not implemented yet.")
 
 class DynamicsModel(SerialisableModule):
     """Dynamics model that predicts tokens given actions.
@@ -485,7 +472,7 @@ class ControllableGPT(SerialisableModule):
         entropy_weight: Weight for entropy regularization.
         vq_beta: Beta parameter for VQ commitment loss.
     """
-    def __init__(self, 
+    def __init__(self,
                  vocab_size: int = 2048,
                  n_layer: int = 6,
                  n_head: int = 6,
