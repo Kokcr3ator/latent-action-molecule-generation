@@ -92,6 +92,7 @@ DATA_DIR=$(_cfg data_dir)
 CKPT_ROOT=$(_cfg ckpt_root)
 VOCAB_SIZE=$(_cfg vocab_size)
 NUM_LATENTS=$(_cfg num_latents)
+HORIZON=$(_cfg horizon)
 read -ra SEEDS <<< "$(_cfg seeds)"
 CONTROLLABLE_ITERS=$(_cfg controllable_iters)
 DISTILLATION_ITERS=$(_cfg distillation_iters)
@@ -113,6 +114,7 @@ for S in "${SEEDS[@]}"; do
       --ckpt-root ${CKPT_ROOT} \
       --tokenizer.vocab-size ${VOCAB_SIZE} \
       --model.num-latents ${NUM_LATENTS} \
+      --model.horizon ${HORIZON} \
       --training.max-iters ${CONTROLLABLE_ITERS} \
       --training.batch-size ${BATCH_SIZE} \
       --wandb.project ${WANDB_PROJECT} \

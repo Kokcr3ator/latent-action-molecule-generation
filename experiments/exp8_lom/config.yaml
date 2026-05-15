@@ -20,6 +20,7 @@ ckpt_root: /scratch/$USER/interdiff/ckpts_lom
 # --- Model -------------------------------------------------------------------
 vocab_size: 2048
 num_latents: 128
+horizon: -1  # forward context window for action token (-1 = full future, k >= 0 limits to x_{t+2}..x_{t+k+2})
 
 # --- Training ----------------------------------------------------------------
 batch_size: 2048
