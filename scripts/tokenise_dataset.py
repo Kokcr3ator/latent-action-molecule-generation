@@ -53,19 +53,18 @@ def run_tokenisation(
             special_tokens=_SPECIAL_TOKENS,
         )
 
-    pad_token = _SPECIAL_TOKENS[0]
-    tokenizer.enable_truncation(max_length=context_length)
-    tokenizer.enable_padding(
-        pad_id=tokenizer.token_to_id(pad_token),
-        pad_token=pad_token,
-        length=context_length,
-    )
     log.info("Tokenizer training complete.")
     tokenizer.save(tok_file)
 
     log.info("Tokenizing dataset...")
     encodings = tokenizer.encode_batch([with_bounds(s) for s in smiles_list])
-    tokenised_dataset = [e.ids for e in encodings]
+
+    # Pack all sequences into one flat stream then chunk into context_length blocks.
+    # This avoids padding waste: every token in every training sample is real.
+    flat = [id for enc in encodings for id in enc.ids]
+    n_chunks = len(flat) // context_length
+    flat = flat[:n_chunks * context_length]
+    tokenised_dataset = torch.tensor(flat, dtype=torch.long).reshape(n_chunks, context_length).tolist()
 
     actual_vocab_size = len(tokenizer.get_vocab())
     if actual_vocab_size <= 256:

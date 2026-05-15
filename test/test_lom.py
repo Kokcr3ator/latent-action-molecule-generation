@@ -498,75 +498,53 @@ def _load_zinc_dataset(n_samples: int = 2000) -> ControllableGPTDataset:
 
 @zinc_available
 class TestZincDataValues:
-    """Checks that the zinc dataset produces correct token values — not just shapes.
+    """Checks that the packed zinc dataset produces correct token values.
 
-    Every test operates on real SMILES token sequences so that encoding bugs
-    (wrong shifts, wrong special-token placement, PAD/EOS confusion) are caught
-    on data that actually matters.
+    With packed sampling, all molecules are concatenated into a flat stream and
+    chunked into context_length blocks — no PAD tokens, chunks may start
+    mid-molecule.  Tests are updated to reflect these invariants.
     """
 
     N = 2000  # number of rows checked in each test
 
-    def test_x_always_starts_with_bos(self):
-        """Every sequence must begin with [BOS] (id=3)."""
+    def test_no_pad_tokens_anywhere(self):
+        """Packed data must contain zero PAD tokens — every position is a real token."""
         ds = _load_zinc_dataset(self.N)
         for i in range(len(ds)):
             x = ds[i]["x"]
-            assert x[0].item() == ZINC_BOS_ID, \
-                f"row {i}: x[0]={x[0].item()}, expected BOS={ZINC_BOS_ID}"
+            assert ZINC_PAD_ID not in x.tolist(), \
+                f"row {i}: PAD token (id={ZINC_PAD_ID}) found in packed chunk"
 
     def test_y_is_x_shifted_left(self):
-        """y must equal x[1:] for every real sample — catches any off-by-one in the loader."""
+        """y must equal x[1:] for every sample — catches any off-by-one in the loader."""
         ds = _load_zinc_dataset(self.N)
         for i in range(len(ds)):
             item = ds[i]
             assert torch.equal(item["y"], item["x"][1:]), \
                 f"row {i}: y != x[1:]\n  x={item['x'].tolist()}\n  y={item['y'].tolist()}"
 
-    def test_y_first_token_is_not_bos(self):
-        """y[0] = x[1] is the first SMILES character, never BOS again.
+    def test_eos_always_followed_by_bos(self):
+        """In the packed stream, every EOS must be immediately followed by BOS.
 
-        If BOS were inserted twice (or x and y were misaligned by one extra step)
-        this would fire.
+        The flat token stream is [BOS] mol [EOS] [BOS] mol [EOS] ..., so wherever
+        EOS appears inside a chunk, the next token must be BOS.  If it isn't, the
+        packing concatenation inserted a gap or duplicated a boundary token.
         """
         ds = _load_zinc_dataset(self.N)
-        bos_in_y0 = sum(ds[i]["y"][0].item() == ZINC_BOS_ID for i in range(len(ds)))
-        assert bos_in_y0 == 0, \
-            f"{bos_in_y0}/{len(ds)} samples have BOS at y[0] — likely an alignment bug"
+        for i in range(len(ds)):
+            row = ds[i]["x"].tolist()
+            for pos, tok in enumerate(row[:-1]):
+                if tok == ZINC_EOS_ID:
+                    assert row[pos + 1] == ZINC_BOS_ID, \
+                        f"row {i}: EOS at pos {pos} not followed by BOS: {row[pos-2:pos+4]}"
 
     def test_no_mask_token_in_training_data(self):
-        """[MASK] (id=2) must not appear in raw training data.
-
-        MASK is a model-internal placeholder; if the dataset contains it the
-        encoder's wte lookup for MASK will be polluted by real SMILES statistics.
-        """
+        """[MASK] (id=2) must not appear in raw training data."""
         ds = _load_zinc_dataset(self.N)
         for i in range(len(ds)):
             x = ds[i]["x"]
             assert ZINC_MASK_ID not in x.tolist(), \
                 f"row {i}: [MASK] token (id={ZINC_MASK_ID}) found in training data"
-
-    def test_pad_only_after_eos(self):
-        """PAD tokens must not appear before EOS in any sequence."""
-        ds = _load_zinc_dataset(self.N)
-        for i in range(len(ds)):
-            row = ds[i]["x"].tolist()
-            if ZINC_EOS_ID in row:
-                eos_pos = row.index(ZINC_EOS_ID)
-                pre_eos = row[:eos_pos]
-                assert ZINC_PAD_ID not in pre_eos, \
-                    f"row {i}: PAD found before EOS at pos {eos_pos}: {row}"
-
-    def test_no_pad_before_eos_in_y(self):
-        """Same PAD-after-EOS constraint holds for y (the prediction target)."""
-        ds = _load_zinc_dataset(self.N)
-        for i in range(len(ds)):
-            row = ds[i]["y"].tolist()
-            if ZINC_EOS_ID in row:
-                eos_pos = row.index(ZINC_EOS_ID)
-                pre_eos = row[:eos_pos]
-                assert ZINC_PAD_ID not in pre_eos, \
-                    f"row {i}: PAD found before EOS in y at pos {eos_pos}"
 
     def test_token_ids_in_vocab_range(self):
         """All token ids must be in [0, ZINC_VOCAB_SIZE)."""
@@ -587,3 +565,17 @@ class TestZincDataValues:
         for t in range(T - 1):
             assert torch.equal(y[:, t], x[:, t + 1]), \
                 f"column misalignment at t={t}: y[:,{t}] != x[:,{t+1}]"
+
+    def test_all_tokens_are_real(self):
+        """Every position in every chunk must be a real token (no PAD anywhere).
+
+        Packing concatenates molecules into a flat stream and chunks into
+        context_length blocks, so there is no structural reason for PAD to
+        appear.  This test is the primary efficiency invariant of packed sampling:
+        100% of every forward pass contributes to the loss.
+        """
+        with safe_open(ZINC_DATASET, framework="pt") as f:
+            tokens = f.get_tensor(list(f.keys())[0])
+        pad_count = (tokens == ZINC_PAD_ID).sum().item()
+        assert pad_count == 0, \
+            f"{pad_count} PAD tokens found — dataset may not have been packed correctly"
