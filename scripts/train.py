@@ -102,6 +102,8 @@ class ControllableGPTModelCfg:
     vq_beta: float = 0.25
     norm_mode: str = "none"
     norm_penalty_weight: float = 1.0
+    vq_dropout: float = 0.2
+    vq_reset_thresh: int = 50
     horizon: int = -1  # forward context window (-1 = full future, k >= 0 limits to x_{t+2}..x_{t+k+2})
 
 
@@ -284,6 +286,7 @@ def main() -> None:
             latent_action_dim=m.latent_action_dim, num_latents=m.num_latents,
             entropy_weight=m.entropy_weight, vq_beta=m.vq_beta,
             norm_mode=m.norm_mode, norm_penalty_weight=m.norm_penalty_weight,
+            vq_dropout=m.vq_dropout, vq_reset_thresh=m.vq_reset_thresh,
             horizon=m.horizon,
         )
     elif isinstance(cfg, PolicyDistillCfg):
@@ -302,6 +305,7 @@ def main() -> None:
             latent_action_dim=m.latent_action_dim, num_latents=m.num_latents,
             entropy_weight=m.entropy_weight, vq_beta=m.vq_beta,
             norm_mode=m.norm_mode, norm_penalty_weight=m.norm_penalty_weight,
+            vq_dropout=m.vq_dropout, vq_reset_thresh=m.vq_reset_thresh,
             horizon=m.horizon,
         )
 

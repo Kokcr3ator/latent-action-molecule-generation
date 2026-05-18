@@ -268,6 +268,8 @@ class LatentActionModel(SerialisableModule):
                  vq_beta: float = 0.25,
                  norm_mode: str = "none",
                  norm_penalty_weight: float = 1.0,
+                 vq_dropout: float = 0.2,
+                 vq_reset_thresh: int = 50,
                  horizon: int = -1):
 
         super().__init__()
@@ -290,8 +292,11 @@ class LatentActionModel(SerialisableModule):
         vq_conf = VQConfig(latent_action_dim=latent_action_dim,
                            num_latents=num_latents,
                            entropy_weight=entropy_weight,
-                           dropout=dropout,
-                           vq_beta=vq_beta)
+                           dropout=vq_dropout,
+                           vq_beta=vq_beta,
+                           vq_reset_thresh=vq_reset_thresh)
+        self.vq_dropout = vq_dropout
+        self.vq_reset_thresh = vq_reset_thresh
 
         kwargs_gpt = t_conf.__dict__
         kwargs_gpt['lm_head_out_size'] = lm_head_out_size
@@ -527,6 +532,8 @@ class ControllableGPT(SerialisableModule):
         num_latents: Number of discrete latent codes.
         entropy_weight: Weight for entropy regularization.
         vq_beta: Beta parameter for VQ commitment loss.
+        vq_dropout: Dropout on the distance matrix (prevents codebook collapse).
+        vq_reset_thresh: Steps of inactivity before resetting a dead code (0 = disabled).
     """
     def __init__(self,
                  vocab_size: int = 2048,
@@ -546,6 +553,8 @@ class ControllableGPT(SerialisableModule):
                  vq_beta: float = 0.25,
                  norm_mode: str = "none",
                  norm_penalty_weight: float = 1.0,
+                 vq_dropout: float = 0.2,
+                 vq_reset_thresh: int = 50,
                  horizon: int = -1):
 
         super().__init__()
@@ -566,6 +575,8 @@ class ControllableGPT(SerialisableModule):
                                      vq_beta=vq_beta,
                                      norm_mode=norm_mode,
                                      norm_penalty_weight=norm_penalty_weight,
+                                     vq_dropout=vq_dropout,
+                                     vq_reset_thresh=vq_reset_thresh,
                                      horizon=horizon)
 
         self.lam = LatentActionModel(**lam_config.__dict__)

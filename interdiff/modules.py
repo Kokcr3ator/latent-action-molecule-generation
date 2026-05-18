@@ -42,19 +42,21 @@ class TransformerConfig:
 @dataclass
 class VQConfig:
     """Configuration for Vector Quantization.
-    
+
     Attributes:
         latent_action_dim: Dimension of the latent action space.
         num_latents: Number of discrete latent codes in the codebook.
-        dropout: Dropout probability.
+        dropout: Dropout probability applied to distances (prevents codebook collapse).
         entropy_weight: Weight for entropy regularization.
         vq_beta: Beta parameter for vector quantization commitment loss.
+        vq_reset_thresh: Steps of inactivity before a dead code is reset (0 = disabled).
     """
     latent_action_dim: int = 64
     num_latents: int = 512
-    dropout: float = 0.0
+    dropout: float = 0.2
     entropy_weight: float = 0.01
     vq_beta: float = 0.25
+    vq_reset_thresh: int = 50
 
 @dataclass
 class LatentActionModelConfig:
@@ -97,6 +99,8 @@ class LatentActionModelConfig:
     vq_beta: float = 0.25
     norm_mode: str = "none"
     norm_penalty_weight: float = 1.0
+    vq_dropout: float = 0.2
+    vq_reset_thresh: int = 50
     horizon: int = -1  # forward context window for action token (-1 = full future)
 
 class SerialisableModule(nn.Module):
@@ -368,7 +372,8 @@ class VectorQuantizer(SerialisableModule):
                  entropy_weight: float,
                  vq_beta: float,
                  norm_mode: str = "none",
-                 norm_penalty_weight: float = 1.0):
+                 norm_penalty_weight: float = 1.0,
+                 vq_reset_thresh: int = 50):
         super().__init__()
         self.latent_action_dim = latent_action_dim
         self.num_latents = num_latents
@@ -378,6 +383,7 @@ class VectorQuantizer(SerialisableModule):
         assert norm_mode in ("none", "loss", "codebook", "step", "norm_penalty"), f"Unknown norm_mode: {norm_mode}"
         self.norm_mode = norm_mode
         self.norm_penalty_weight = norm_penalty_weight
+        self.vq_reset_thresh = vq_reset_thresh
 
         # Lecun's initialization for codebook
         bound = (3 / self.latent_action_dim) ** 0.5
@@ -385,6 +391,8 @@ class VectorQuantizer(SerialisableModule):
             torch.empty(self.num_latents, self.latent_action_dim).uniform_(-bound, bound)
         )
         self._normalize_codebook()
+        # Steps since each code was last used (for dead-code reset)
+        self.register_buffer('last_active', torch.zeros(num_latents, dtype=torch.long))
 
     def _normalize_codebook(self):
         """
@@ -425,6 +433,20 @@ class VectorQuantizer(SerialisableModule):
         # --- Find closest codebook entries ---
         indices = torch.argmin(distance, dim=-1)
         z = self.codebook[indices]
+
+        # --- Dead code reset (training only) ---
+        if self.training and self.vq_reset_thresh > 0:
+            flat = indices.view(-1)
+            self.last_active += 1
+            self.last_active[flat.unique()] = 0
+            dead = (self.last_active >= self.vq_reset_thresh).nonzero(as_tuple=True)[0]
+            if dead.numel() > 0:
+                active = (self.last_active < self.vq_reset_thresh).nonzero(as_tuple=True)[0]
+                if active.numel() > 0:
+                    src = active[torch.randint(active.numel(), (dead.numel(),), device=x.device)]
+                    with torch.no_grad():
+                        self.codebook.data[dead] = self.codebook.data[src]
+                        self.last_active[dead] = 0
 
         # --- STE ---
         z_q = x + (z - x).detach()
