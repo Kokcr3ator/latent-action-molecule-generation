@@ -9,6 +9,8 @@
 # Runs all pretrain seeds, then all RL seeds.
 # =============================================================================
 set -euo pipefail
+FORCE=0
+for _arg in "$@"; do [ "$_arg" = "--force" ] && FORCE=1; done
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 CFG="$(cd "$(dirname "$0")" && pwd)/config.yaml"
@@ -23,6 +25,7 @@ print(' '.join(expand(x) for x in v) if isinstance(v, list) else expand(v))
 "; }
 
 _done() {
+  [ "${FORCE}" = "1" ] && return 1
   [ -f "$1/done" ] || return 1
   echo "    skipping — $1/done sentinel exists"
 }
