@@ -485,7 +485,66 @@ class TestGradientFlow:
 
 
 # ---------------------------------------------------------------------------
-# 5. Zinc data values — actual token correctness
+# 5. VQ dropout wiring
+# ---------------------------------------------------------------------------
+
+class TestVQDropout:
+    """Verify vq_dropout is correctly threaded to the VQ module and is active."""
+
+    def _make_lam(self, vq_dropout: float) -> LatentActionModel:
+        return LatentActionModel(
+            vocab_size=VOCAB_SIZE, n_layer=N_LAYER, n_head=N_HEAD, n_embd=N_EMBD,
+            dropout=0.0, context_length=CONTEXT_LEN, lm_head_out_size=VOCAB_SIZE,
+            latent_action_dim=N_EMBD, num_latents=NUM_LATENTS,
+            pad_token_id=PAD_ID, bos_token_id=BOS_ID, eos_token_id=EOS_ID,
+            vq_dropout=vq_dropout,
+        )
+
+    def test_vq_dropout_rate_stored_in_vq_module(self):
+        """vq_dropout value reaches vq.dropout.p, not just the LAM config."""
+        for p in (0.0, 0.2, 0.5):
+            lam = self._make_lam(vq_dropout=p)
+            assert lam.vq.dropout.p == p, f"expected vq.dropout.p={p}, got {lam.vq.dropout.p}"
+
+    def test_vq_dropout_via_cgpt_constructor(self):
+        """vq_dropout threads correctly through ControllableGPT → LatentActionModel → VQ."""
+        cgpt = ControllableGPT(
+            vocab_size=VOCAB_SIZE, n_layer=N_LAYER, n_head=N_HEAD, n_embd=N_EMBD,
+            dropout=0.0, context_length=CONTEXT_LEN, lm_head_out_size=VOCAB_SIZE,
+            latent_action_dim=N_EMBD, num_latents=NUM_LATENTS,
+            pad_token_id=PAD_ID, bos_token_id=BOS_ID, eos_token_id=EOS_ID,
+            vq_dropout=0.3,
+        )
+        assert cgpt.lam.vq.dropout.p == 0.3
+
+    def test_vq_assignments_stochastic_in_train_mode(self):
+        """With vq_dropout > 0 and model in train mode, the same input yields different code assignments across runs."""
+        lam = self._make_lam(vq_dropout=0.5)
+        lam.train()
+        x = torch.randint(5, VOCAB_SIZE, (BATCH_SIZE, CONTEXT_LEN))
+        indices = []
+        for _ in range(10):
+            with torch.no_grad():
+                _, _, vq_dict = lam(x)
+            indices.append(vq_dict['indices'].clone())
+        all_equal = all(torch.equal(indices[0], r) for r in indices[1:])
+        assert not all_equal, "VQ assignments are identical across runs — dropout is not active during training"
+
+    def test_vq_assignments_deterministic_in_eval_mode(self):
+        """With model in eval mode, the same input always yields identical code assignments."""
+        lam = self._make_lam(vq_dropout=0.5)
+        lam.eval()
+        x = torch.randint(5, VOCAB_SIZE, (BATCH_SIZE, CONTEXT_LEN))
+        indices = []
+        for _ in range(5):
+            with torch.no_grad():
+                _, _, vq_dict = lam(x)
+            indices.append(vq_dict['indices'].clone())
+        assert all(torch.equal(indices[0], r) for r in indices[1:]), \
+            "VQ assignments differ in eval mode — dropout is incorrectly active during eval"
+
+
+# 6. Zinc data values — actual token correctness
 # ---------------------------------------------------------------------------
 
 def _load_zinc_dataset(n_samples: int = 2000) -> ControllableGPTDataset:
